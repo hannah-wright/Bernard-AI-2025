@@ -1,12 +1,41 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState, useRef } from 'react';
+import { Header } from '@/components/layout/Header';
+import { Hero } from '@/components/dashboard/Hero';
+import { StatsBar } from '@/components/dashboard/StatsBar';
+import { FilterSidebar } from '@/components/dashboard/FilterSidebar';
+import { StartupGrid } from '@/components/dashboard/StartupGrid';
+import { mockStartups } from '@/data/mockStartups';
+import { FilterState } from '@/types/startup';
 
 const Index = () => {
+  const dashboardRef = useRef<HTMLDivElement>(null);
+  const [filters, setFilters] = useState<FilterState>({
+    dateRange: '30',
+    fundingMin: undefined,
+    fundingMax: undefined,
+    roundTypes: [],
+    sectors: [],
+    location: '',
+  });
+
+  const scrollToDashboard = () => {
+    dashboardRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <Header />
+      <main>
+        <Hero onStartScouting={scrollToDashboard} />
+        <StatsBar />
+        
+        <div ref={dashboardRef} className="container mx-auto px-4 py-8">
+          <div className="flex flex-col lg:flex-row gap-6">
+            <FilterSidebar filters={filters} onFiltersChange={setFilters} />
+            <StartupGrid startups={mockStartups} filters={filters} />
+          </div>
+        </div>
+      </main>
     </div>
   );
 };
