@@ -1,0 +1,88 @@
+import { Startup, FilterState } from '@/types/startup';
+import { StartupCard } from './StartupCard';
+
+interface StartupGridProps {
+  startups: Startup[];
+  filters: FilterState;
+}
+
+export const StartupGrid = ({ startups, filters }: StartupGridProps) => {
+  // Filter startups based on current filters
+  const filteredStartups = startups.filter((startup) => {
+    // Date range filter
+    const daysAgo = parseInt(filters.dateRange);
+    const fundingDate = new Date(startup.fundingRound.date);
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysAgo);
+    if (fundingDate < cutoffDate) return false;
+
+    // Funding amount filter
+    const amountInMillions = startup.fundingRound.amount / 1000000;
+    if (filters.fundingMin !== undefined && amountInMillions < filters.fundingMin) return false;
+    if (filters.fundingMax !== undefined && amountInMillions > filters.fundingMax) return false;
+
+    // Round type filter
+    if (filters.roundTypes.length > 0 && !filters.roundTypes.includes(startup.fundingRound.type)) {
+      return false;
+    }
+
+    // Sector filter
+    if (
+      filters.sectors.length > 0 &&
+      !startup.sector.some((s) => filters.sectors.includes(s))
+    ) {
+      return false;
+    }
+
+    // Location filter
+    if (filters.location && filters.location !== 'any') {
+      const locationMap: Record<string, string[]> = {
+        usa: ['USA', 'United States'],
+        uk: ['UK', 'United Kingdom'],
+        eu: ['Germany', 'France', 'Netherlands', 'Spain', 'Italy'],
+        asia: ['China', 'Japan', 'India', 'Singapore', 'South Korea'],
+      };
+      const validCountries = locationMap[filters.location] || [];
+      if (!validCountries.includes(startup.location.country)) return false;
+    }
+
+    return true;
+  });
+
+  return (
+    <div className="flex-1">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-lg font-semibold">Recent Funding Rounds</h2>
+          <p className="text-sm text-muted-foreground">
+            {filteredStartups.length} startup{filteredStartups.length !== 1 ? 's' : ''} match your criteria
+          </p>
+        </div>
+      </div>
+
+      {filteredStartups.length > 0 ? (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {filteredStartups.map((startup, index) => (
+            <div
+              key={startup.id}
+              className="animate-fade-in"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <StartupCard startup={startup} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="h-16 w-16 rounded-full bg-secondary flex items-center justify-center mb-4">
+            <span className="text-2xl">🔍</span>
+          </div>
+          <h3 className="font-medium text-foreground mb-1">No startups found</h3>
+          <p className="text-sm text-muted-foreground max-w-sm">
+            Try adjusting your filters to see more results. You can change the date range, funding amount, or sectors.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
