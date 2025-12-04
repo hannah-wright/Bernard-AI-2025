@@ -1,1 +1,4 @@
 project_id = "YOUR_PROJECT_REF"
+
+[functions.scrape-startups]
+verify_jwt = false
