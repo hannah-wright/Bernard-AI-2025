@@ -205,13 +205,19 @@ export const StartupCard = ({ startup, onFavoriteToggle }: StartupCardProps) => 
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t border-border">
-            <Button className="flex-1" asChild>
-              <a href={startup.website} target="_blank" rel="noopener noreferrer">
-                Visit Website
-                <ExternalLink className="h-4 w-4 ml-2" />
-              </a>
-            </Button>
+          <div className="flex flex-col gap-3 pt-4 border-t border-border">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground mb-1">Website URL</p>
+                <p className="text-sm font-medium truncate">{startup.website}</p>
+              </div>
+              <Button variant="outline" size="sm" asChild>
+                <a href={startup.website} target="_blank" rel="noopener noreferrer">
+                  Open website
+                  <ExternalLink className="h-3 w-3 ml-1.5" />
+                </a>
+              </Button>
+            </div>
             <Button
               variant={isFavorite ? 'secondary' : 'outline'}
               onClick={handleFavoriteClick}
