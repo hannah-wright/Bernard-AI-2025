@@ -2,8 +2,9 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useBilling } from '@/hooks/useBilling';
+import { useProfile } from '@/hooks/useProfile';
 import { BILLING_CONFIG } from '@/config/billing';
-import { Search, Bell, User, LogOut, CreditCard } from 'lucide-react';
+import { Search, Bell, User, LogOut, CreditCard, Coins } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +16,7 @@ import {
 export const Header = () => {
   const { user, signOut } = useAuth();
   const { subscription } = useBilling();
+  const { profile } = useProfile();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -24,6 +26,8 @@ export const Header = () => {
   const planName = subscription.plan 
     ? BILLING_CONFIG.plans[subscription.plan].name 
     : 'Free';
+
+  const credits = profile?.credits_remaining ?? 0;
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -53,6 +57,14 @@ export const Header = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            {user && (
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-muted rounded-full">
+                <Coins className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">{credits.toLocaleString()}</span>
+                <span className="text-xs text-muted-foreground">credits</span>
+              </div>
+            )}
+            
             <Button variant="ghost" size="icon" className="hidden md:flex">
               <Search className="h-4 w-4" />
             </Button>
@@ -74,6 +86,9 @@ export const Header = () => {
                     <p className="text-xs text-muted-foreground">
                       {planName} Plan
                       {subscription.isAnnual && ' (Annual)'}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {credits.toLocaleString()} credits remaining
                     </p>
                   </div>
                   <DropdownMenuSeparator />

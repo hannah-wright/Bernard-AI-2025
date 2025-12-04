@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      credit_transactions: {
+        Row: {
+          amount: number
+          created_at: string | null
+          description: string | null
+          id: string
+          stripe_payment_id: string | null
+          stripe_subscription_id: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          stripe_payment_id?: string | null
+          stripe_subscription_id?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          stripe_payment_id?: string | null
+          stripe_subscription_id?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       data_sources: {
         Row: {
           confidence: Database["public"]["Enums"]["confidence_level"]
