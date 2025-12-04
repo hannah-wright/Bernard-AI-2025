@@ -38,7 +38,7 @@ export const Header = () => {
               <div className="h-8 w-8 rounded-lg bg-foreground flex items-center justify-center">
                 <span className="text-sm font-bold text-background">BA</span>
               </div>
-              <span className="font-semibold text-lg">BernardAI</span>
+              <span className="font-serif font-semibold text-lg">BernardAI</span>
             </a>
             <nav className="hidden md:flex items-center gap-6">
               <a href="/" className="text-sm font-medium text-foreground">

@@ -17,7 +17,7 @@ export const Hero = ({ onStartScouting }: HeroProps) => {
           </div>
 
           <h1
-            className="text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight mb-6 animate-slide-up"
+            className="font-serif text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight mb-6 animate-slide-up"
             style={{ animationDelay: '100ms' }}
           >
             Scout the next unicorn
