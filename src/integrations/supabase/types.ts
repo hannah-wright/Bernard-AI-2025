@@ -384,6 +384,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_update_profile: {
+        Args: {
+          new_credits?: number
+          new_tier?: string
+          target_user_id: string
+        }
+        Returns: undefined
+      }
+      check_invite_code: {
+        Args: { code_to_check: string }
+        Returns: {
+          credits_granted: number
+          id: string
+          is_valid: boolean
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
