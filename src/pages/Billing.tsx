@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { useBilling } from '@/hooks/useBilling';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import { BILLING_CONFIG, formatPrice, PlanKey } from '@/config/billing';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +13,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Check, Loader2, CreditCard, AlertCircle, RefreshCw } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Check, Loader2, CreditCard, AlertCircle, RefreshCw, History, Coins, TrendingUp, TrendingDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 const CANCELLATION_REASONS = [
@@ -27,6 +29,7 @@ const CANCELLATION_REASONS = [
 const Billing = () => {
   const [searchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
+  const { profile, transactions, fetchTransactions, refreshProfile } = useProfile();
   const {
     subscription,
     loading: billingLoading,
@@ -56,6 +59,7 @@ const Billing = () => {
     if (success === 'true') {
       toast.success('Subscription activated successfully!');
       refreshSubscription();
+      refreshProfile();
     }
     if (canceled === 'true') {
       toast.info('Checkout was cancelled');
@@ -63,8 +67,16 @@ const Billing = () => {
     if (creditsPurchased) {
       toast.success(`${creditsPurchased} credits added to your account!`);
       refreshSubscription();
+      refreshProfile();
     }
-  }, [searchParams, refreshSubscription]);
+  }, [searchParams, refreshSubscription, refreshProfile]);
+
+  // Fetch transactions on mount
+  useEffect(() => {
+    if (user) {
+      fetchTransactions();
+    }
+  }, [user, fetchTransactions]);
 
   const handleSubscribe = async (planKey: PlanKey) => {
     setProcessingAction(planKey);
@@ -332,6 +344,74 @@ const Billing = () => {
                   </Card>
                 ))}
               </div>
+            </>
+          )}
+
+          {/* Credit Balance & History */}
+          {user && (
+            <>
+              <div className="mt-12 mb-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Coins className="h-5 w-5" />
+                      Credit Balance
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-4xl font-bold">
+                      {(profile?.credits_remaining ?? 0).toLocaleString()}
+                    </div>
+                    <p className="text-muted-foreground text-sm mt-1">credits remaining</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {transactions.length > 0 && (
+                <>
+                  <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                    <History className="h-5 w-5" />
+                    Credit History
+                  </h2>
+                  <Card>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {transactions.slice(0, 10).map((tx) => (
+                          <TableRow key={tx.id}>
+                            <TableCell className="text-muted-foreground">
+                              {new Date(tx.created_at).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="capitalize">
+                                {tx.type.replace(/_/g, ' ')}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{tx.description || '-'}</TableCell>
+                            <TableCell className="text-right font-medium">
+                              <span className={tx.amount >= 0 ? 'text-success' : 'text-destructive'}>
+                                {tx.amount >= 0 ? (
+                                  <TrendingUp className="h-3 w-3 inline mr-1" />
+                                ) : (
+                                  <TrendingDown className="h-3 w-3 inline mr-1" />
+                                )}
+                                {tx.amount >= 0 ? '+' : ''}{tx.amount}
+                              </span>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </Card>
+                </>
+              )}
             </>
           )}
         </div>
