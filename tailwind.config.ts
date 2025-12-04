@@ -15,6 +15,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        serif: ['Libre Baskerville', 'Georgia', 'serif'],
       },
       colors: {
         border: "hsl(var(--border))",
