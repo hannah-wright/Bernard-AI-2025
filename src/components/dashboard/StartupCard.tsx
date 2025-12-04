@@ -23,9 +23,12 @@ const formatCurrency = (amount: number) => {
     return `$${(amount / 1000000000).toFixed(1)}B`;
   }
   if (amount >= 1000000) {
-    return `$${(amount / 1000000).toFixed(0)}M`;
+    return `$${(amount / 1000000).toFixed(1)}M`;
   }
-  return `$${amount.toLocaleString()}`;
+  if (amount >= 1000) {
+    return `$${(amount / 1000).toFixed(0)}k`;
+  }
+  return `$${amount}`;
 };
 
 const formatDate = (dateString: string) => {
