@@ -366,8 +366,8 @@ export const FilterSidebar = ({ filters, onFiltersChange }: FilterSidebarProps) 
         {renderCheckboxGroup(sectors, 'sectors', 'sector')}
       </FilterSection>
 
-      {/* Location - HQ Region & Metro drill-down */}
-      <FilterSection title="HQ Region" defaultOpen>
+      {/* Location - HQ Location & Metro drill-down */}
+      <FilterSection title="HQ Location" defaultOpen>
         <div className="space-y-3">
           {/* Region/Country selector - dynamically loaded from database */}
           <div className="space-y-2">
