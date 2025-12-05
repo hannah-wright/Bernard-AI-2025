@@ -32,6 +32,26 @@ interface ScrapedStartup {
   confidence: string
 }
 
+// VC-relevant criteria for early-stage startups
+const STARTUP_CRITERIA = {
+  // Maximum total funding to consider (filter out mega-funded companies)
+  MAX_FUNDING_AMOUNT: 300000000, // $300M max
+  // Round types that are VC-relevant (early to growth)
+  VALID_ROUND_TYPES: ['Pre-Seed', 'Seed', 'Series A', 'Series B', 'Bootstrapped'],
+  // Exclude these well-known large companies
+  EXCLUDED_COMPANIES: new Set([
+    'stripe', 'airbnb', 'uber', 'lyft', 'doordash', 'instacart', 'coinbase',
+    'robinhood', 'chime', 'plaid', 'discord', 'notion', 'figma', 'canva',
+    'databricks', 'snowflake', 'palantir', 'slack', 'zoom', 'dropbox',
+    'github', 'gitlab', 'atlassian', 'salesforce', 'oracle', 'microsoft',
+    'google', 'amazon', 'meta', 'apple', 'nvidia', 'openai', 'anthropic',
+    'grab', 'gojek', 'rappi', 'revolut', 'nubank', 'klarna', 'affirm',
+    'mailchimp', 'hubspot', 'zendesk', 'twilio', 'sendgrid', 'shopify',
+    'squarespace', 'wix', 'wordpress', 'godaddy', 'cloudflare', 'fastly',
+    'monday.com', 'asana', 'trello', 'basecamp', 'zoho', 'freshworks'
+  ])
+}
+
 const TECH_NEWS_SOURCES = [
   {
     name: 'TechCrunch Startups',
@@ -103,6 +123,36 @@ async function scrapeWithZyte(url: string, apiKey: string): Promise<string | nul
   }
 }
 
+// Validate startup meets VC-relevant criteria
+function meetsVCCriteria(startup: ScrapedStartup): boolean {
+  // Check if company is in excluded list
+  const normalizedName = startup.name.toLowerCase().replace(/[^a-z0-9]/g, '')
+  if (STARTUP_CRITERIA.EXCLUDED_COMPANIES.has(normalizedName)) {
+    console.log(`Excluding ${startup.name}: well-known large company`)
+    return false
+  }
+  
+  // Check funding amount is within early-stage range
+  if (startup.funding_amount > STARTUP_CRITERIA.MAX_FUNDING_AMOUNT) {
+    console.log(`Excluding ${startup.name}: funding ${startup.funding_amount} exceeds max ${STARTUP_CRITERIA.MAX_FUNDING_AMOUNT}`)
+    return false
+  }
+  
+  // Check round type is VC-relevant
+  if (!STARTUP_CRITERIA.VALID_ROUND_TYPES.includes(startup.round_type)) {
+    console.log(`Excluding ${startup.name}: round type ${startup.round_type} not VC-relevant`)
+    return false
+  }
+  
+  // Must have a reasonable name (not too generic)
+  if (startup.name.length < 3 || /^(The|A|An|This|That|Company|Startup|Inc|LLC|Corp)$/i.test(startup.name)) {
+    console.log(`Excluding ${startup.name}: generic name`)
+    return false
+  }
+  
+  return true
+}
+
 function parseStartupData(html: string, sourceName: string, sourceUrl: string, confidence: string): ScrapedStartup[] {
   const startups: ScrapedStartup[] = []
   
@@ -113,7 +163,6 @@ function parseStartupData(html: string, sourceName: string, sourceUrl: string, c
   const roundTypes = ['Pre-Seed', 'Seed', 'Series A', 'Series B', 'Series C', 'Series D+', 'Bootstrapped']
   
   // Patterns for bootstrapped/revenue startups (IndieHackers, StarterStory)
-  const revenuePattern = /([A-Z][a-zA-Z0-9]*(?:\s+[A-Z][a-zA-Z0-9]*)*)[^$]*?\$(\d+(?:,\d+)?(?:\.\d+)?)[kK]?\/(?:month|mo|MRR)|MRR[:\s]+\$(\d+(?:,\d+)?(?:\.\d+)?)[kK]?/gi
   const bootstrappedKeywords = ['bootstrapped', 'self-funded', 'no funding', 'profitable', 'indie', 'solo founder', 'revenue:', 'mrr:', 'arr:']
   
   // Parse article content for funding news
@@ -218,7 +267,7 @@ function parseStartupData(html: string, sourceName: string, sourceUrl: string, c
     if (confidence === 'verified') buzzScore += 5
     else if (confidence === 'high') buzzScore += 3
     
-    startups.push({
+    const startup: ScrapedStartup = {
       name: companyName,
       description: `${companyName} is a ${detectedSectors[0]} company that recently raised funding.`,
       eli5: `${companyName} is building technology in the ${detectedSectors[0]} space and just got investment money to grow.`,
@@ -234,10 +283,15 @@ function parseStartupData(html: string, sourceName: string, sourceUrl: string, c
       source_name: sourceName,
       source_url: sourceUrl,
       confidence: confidence
-    })
+    }
+    
+    // Only add if meets VC criteria
+    if (meetsVCCriteria(startup)) {
+      startups.push(startup)
+    }
   }
   
-  console.log(`Parsed ${startups.length} startups from ${sourceName}`)
+  console.log(`Parsed ${startups.length} VC-relevant startups from ${sourceName}`)
   return startups
 }
 
@@ -252,11 +306,17 @@ async function saveStartupsToDatabase(supabase: any, startups: ScrapedStartup[])
       // Check if startup already exists
       const { data: existing } = await supabase
         .from('startups')
-        .select('id')
+        .select('id, total_raised')
         .eq('name', startup.name)
         .single()
       
       if (existing) {
+        // Skip if existing company has too much funding (became too big)
+        if (existing.total_raised && existing.total_raised > STARTUP_CRITERIA.MAX_FUNDING_AMOUNT) {
+          console.log(`Skipping update for ${startup.name}: existing total raised exceeds criteria`)
+          continue
+        }
+        
         // Check if this is a new funding round for existing startup
         const { data: existingRounds } = await supabase
           .from('funding_rounds')
@@ -285,11 +345,13 @@ async function saveStartupsToDatabase(supabase: any, startups: ScrapedStartup[])
             })
           
           if (!fundingError) {
-            // Update buzz score and timestamp
+            // Update buzz score, total_raised, and timestamp
+            const newTotalRaised = (existing.total_raised || 0) + startup.funding_amount
             await supabase
               .from('startups')
               .update({ 
                 buzz_score: Math.max(startup.buzz_score, 50),
+                total_raised: newTotalRaised,
                 updated_at: new Date().toISOString()
               })
               .eq('id', existing.id)
@@ -327,7 +389,8 @@ async function saveStartupsToDatabase(supabase: any, startups: ScrapedStartup[])
           country: startup.country,
           estimated_revenue: startup.estimated_revenue,
           estimated_size: startup.estimated_size,
-          buzz_score: startup.buzz_score
+          buzz_score: startup.buzz_score,
+          total_raised: startup.funding_amount
         })
         .select()
         .single()
@@ -429,7 +492,9 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    console.log('Starting startup scraping job...')
+    console.log('Starting startup scraping job with VC criteria...')
+    console.log(`Max funding: $${STARTUP_CRITERIA.MAX_FUNDING_AMOUNT / 1000000}M`)
+    console.log(`Valid rounds: ${STARTUP_CRITERIA.VALID_ROUND_TYPES.join(', ')}`)
     
     const allStartups: ScrapedStartup[] = []
     
@@ -444,7 +509,7 @@ Deno.serve(async (req) => {
       }
     }
     
-    console.log(`Total startups found: ${allStartups.length}`)
+    console.log(`Total VC-relevant startups found: ${allStartups.length}`)
     
     // Remove duplicates by name
     const uniqueStartups = allStartups.filter((startup, index, self) =>
@@ -465,7 +530,12 @@ Deno.serve(async (req) => {
     
     const result = {
       success: true,
-      message: `Scraping completed`,
+      message: `Scraping completed with VC criteria`,
+      criteria: {
+        max_funding: STARTUP_CRITERIA.MAX_FUNDING_AMOUNT,
+        valid_rounds: STARTUP_CRITERIA.VALID_ROUND_TYPES,
+        excluded_companies_count: STARTUP_CRITERIA.EXCLUDED_COMPANIES.size
+      },
       stats: {
         sources_processed: TECH_NEWS_SOURCES.length,
         startups_found: allStartups.length,
