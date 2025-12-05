@@ -1,14 +1,16 @@
-import { Startup, FilterState } from '@/types/startup';
+import { Startup, FilterState, SortOption } from '@/types/startup';
 import { StartupCard } from './StartupCard';
 import { Button } from '@/components/ui/button';
 import { Lock, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { locationData, countryNameToCode, getMetrosForCountries, cityBelongsToMetro } from '@/data/locationData';
+import { Link } from 'react-router-dom';
 
 interface StartupGridProps {
   startups: Startup[];
   filters: FilterState;
   searchQuery?: string;
+  sortBy?: SortOption;
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;
   onLoadMore?: () => void;
@@ -18,6 +20,7 @@ export const StartupGrid = ({
   startups, 
   filters, 
   searchQuery = '',
+  sortBy = 'date_added',
   hasNextPage,
   isFetchingNextPage,
   onLoadMore 
@@ -42,7 +45,50 @@ export const StartupGrid = ({
       }
     }
 
-    // Date range filter - skip for bootstrapped startups (they don't have funding dates)
+    // Date Added filter - filter by when startup was added to database
+    if (filters.dateAddedRange && filters.dateAddedRange !== 'all') {
+      const createdAt = startup.createdAt ? new Date(startup.createdAt) : null;
+      if (!createdAt) return false;
+      
+      const now = new Date();
+      let cutoffDate: Date;
+      
+      switch (filters.dateAddedRange) {
+        case 'this_week':
+          cutoffDate = new Date(now);
+          cutoffDate.setDate(now.getDate() - now.getDay()); // Start of week (Sunday)
+          cutoffDate.setHours(0, 0, 0, 0);
+          break;
+        case 'this_month':
+          cutoffDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        case 'last_month':
+          const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+          if (createdAt < lastMonth || createdAt > endOfLastMonth) return false;
+          cutoffDate = lastMonth; // Won't be used, but set for safety
+          break;
+        case 'this_year':
+          cutoffDate = new Date(now.getFullYear(), 0, 1);
+          break;
+        case 'last_30_days':
+          cutoffDate = new Date(now);
+          cutoffDate.setDate(now.getDate() - 30);
+          cutoffDate.setHours(0, 0, 0, 0);
+          break;
+        case 'last_90_days':
+          cutoffDate = new Date(now);
+          cutoffDate.setDate(now.getDate() - 90);
+          cutoffDate.setHours(0, 0, 0, 0);
+          break;
+        default:
+          cutoffDate = new Date(0); // All time
+      }
+      
+      if (filters.dateAddedRange !== 'last_month' && createdAt < cutoffDate) return false;
+    }
+
+    // Date range filter (Last Round Date) - skip for bootstrapped startups (they don't have funding dates)
     if (startup.fundingRound.type !== 'Bootstrapped') {
       const fundingDateStr = startup.fundingRound.date.split('T')[0]; // Get YYYY-MM-DD
       const [year, month, day] = fundingDateStr.split('-').map(Number);
@@ -186,21 +232,32 @@ export const StartupGrid = ({
 
     return true;
   }).sort((a, b) => {
-    return new Date(b.fundingRound.date).getTime() - new Date(a.fundingRound.date).getTime();
+    if (sortBy === 'date_added') {
+      // Sort by when the startup was added to the database (created_at)
+      const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bDate - aDate;
+    } else {
+      // Sort by last funding date
+      return new Date(b.fundingRound.date).getTime() - new Date(a.fundingRound.date).getTime();
+    }
   });
 
-  // Authenticated users (trial or paid) see all data; unauthenticated see first 6 only
-  const blurStartIndex = user ? Infinity : 6;
+  // Authenticated users see all data; unauthenticated see first 4 only
+  const blurStartIndex = user ? Infinity : 4;
+  
+  // For logged out users, show placeholder blurred cards to fill the grid
+  const placeholderCount = !user ? Math.max(0, 6 - filteredStartups.length) : 0;
 
   return (
     <div className="flex-1">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-lg font-semibold">Recent Funding Rounds</h2>
+          <h2 className="text-lg font-semibold">Startups to Explore:</h2>
         </div>
       </div>
 
-      {filteredStartups.length > 0 ? (
+      {filteredStartups.length > 0 || !user ? (
         <>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filteredStartups.map((startup, index) => {
@@ -223,13 +280,63 @@ export const StartupGrid = ({
                           <Lock className="h-5 w-5 text-muted-foreground" />
                         </div>
                         <p className="font-medium text-foreground">Get full access</p>
-                        <Button size="sm">Request Access</Button>
+                        <Button size="sm" asChild>
+                          <Link to="/auth">Request Access</Link>
+                        </Button>
                       </div>
                     </div>
                   )}
                 </div>
               );
             })}
+            
+            {/* Placeholder blurred cards for logged out users */}
+            {!user && Array.from({ length: placeholderCount }).map((_, index) => (
+              <div
+                key={`placeholder-${index}`}
+                className="animate-fade-in relative"
+                style={{ animationDelay: `${Math.min(filteredStartups.length + index, 20) * 50}ms` }}
+              >
+                <div className="blur-sm pointer-events-none select-none">
+                  <div className="rounded-lg border border-border bg-card p-5">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-secondary" />
+                        <div>
+                          <div className="h-4 w-24 bg-secondary rounded" />
+                          <div className="h-3 w-20 bg-secondary rounded mt-1" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="h-5 w-16 bg-secondary rounded" />
+                      <div className="h-5 w-12 bg-secondary rounded" />
+                    </div>
+                    <div className="h-8 w-full bg-secondary rounded mb-3" />
+                    <div className="flex gap-1.5 mb-3">
+                      <div className="h-5 w-12 bg-secondary rounded" />
+                      <div className="h-5 w-14 bg-secondary rounded" />
+                    </div>
+                    <div className="pt-3 border-t border-border flex justify-between">
+                      <div className="h-3 w-24 bg-secondary rounded" />
+                      <div className="h-3 w-8 bg-secondary rounded" />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/60 rounded-lg">
+                  <div className="flex flex-col items-center gap-3 p-6 text-center">
+                    <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center">
+                      <Lock className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <p className="font-medium text-foreground">Get full access</p>
+                    <Button size="sm" asChild>
+                      <Link to="/auth">Request Access</Link>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
           
           {/* Load More Button - only for authenticated users when filters aren't reducing results */}

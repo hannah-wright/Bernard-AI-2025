@@ -160,11 +160,14 @@ export interface RiskFlags {
   geographic_concentration?: boolean;
 }
 
+export type SortOption = 'date_added' | 'last_funded';
+
 export interface Startup {
   id: string;
   name: string;
   logo?: string;
   description: string;
+  createdAt?: string;
   eli5: string;
   website: string;
   sector: Sector[];
@@ -234,6 +237,7 @@ export interface Startup {
 
 export interface FilterState {
   dateRange: string;
+  dateAddedRange: string;
   fundingMin?: number;
   fundingMax?: number;
   roundTypes: RoundType[];
