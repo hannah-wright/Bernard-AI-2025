@@ -242,9 +242,10 @@ function parseStartupData(html: string, sourceName: string, sourceUrl: string, c
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function saveStartupsToDatabase(supabase: any, startups: ScrapedStartup[]): Promise<{ saved: number; errors: number }> {
+async function saveStartupsToDatabase(supabase: any, startups: ScrapedStartup[]): Promise<{ saved: number; errors: number; newStartupIds: string[] }> {
   let saved = 0
   let errors = 0
+  const newStartupIds: string[] = []
   
   for (const startup of startups) {
     try {
@@ -337,6 +338,9 @@ async function saveStartupsToDatabase(supabase: any, startups: ScrapedStartup[])
         continue
       }
       
+      // Track new startup ID for enrichment
+      newStartupIds.push(newStartup.id)
+      
       // Insert funding round
       const { error: fundingError } = await supabase
         .from('funding_rounds')
@@ -374,7 +378,34 @@ async function saveStartupsToDatabase(supabase: any, startups: ScrapedStartup[])
     }
   }
   
-  return { saved, errors }
+  return { saved, errors, newStartupIds }
+}
+
+// Trigger enrichment for new startups
+async function triggerEnrichment(supabaseUrl: string, startupIds: string[]): Promise<void> {
+  if (startupIds.length === 0) return
+  
+  console.log(`Triggering enrichment for ${startupIds.length} new startups...`)
+  
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/enrich-startup`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+      },
+      body: JSON.stringify({ startupIds })
+    })
+    
+    if (response.ok) {
+      const result = await response.json()
+      console.log('Enrichment triggered:', result)
+    } else {
+      console.error('Enrichment trigger failed:', await response.text())
+    }
+  } catch (error) {
+    console.error('Failed to trigger enrichment:', error)
+  }
 }
 
 Deno.serve(async (req) => {
@@ -423,7 +454,14 @@ Deno.serve(async (req) => {
     console.log(`Unique startups after deduplication: ${uniqueStartups.length}`)
     
     // Save to database
-    const { saved, errors } = await saveStartupsToDatabase(supabase, uniqueStartups)
+    const { saved, errors, newStartupIds } = await saveStartupsToDatabase(supabase, uniqueStartups)
+    
+    // Auto-enrich new startups (fire and forget - don't block response)
+    if (newStartupIds.length > 0) {
+      triggerEnrichment(supabaseUrl, newStartupIds).catch(err => 
+        console.error('Background enrichment failed:', err)
+      )
+    }
     
     const result = {
       success: true,
@@ -433,6 +471,7 @@ Deno.serve(async (req) => {
         startups_found: allStartups.length,
         unique_startups: uniqueStartups.length,
         saved_to_database: saved,
+        new_startups_queued_for_enrichment: newStartupIds.length,
         errors: errors
       }
     }
