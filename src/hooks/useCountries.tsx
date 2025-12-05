@@ -84,22 +84,32 @@ async function fetchUniqueCountries(): Promise<CountryOption[]> {
     return [];
   }
 
-  // Get unique countries
-  const uniqueCountries = [...new Set(data.map(s => s.country))];
-  
-  // Map to country options with codes
-  const countryOptions: CountryOption[] = uniqueCountries
-    .map(country => {
-      // Check if it's already a code
-      if (codeToName[country]) {
-        return { code: country, name: codeToName[country] };
-      }
-      // Otherwise map from name to code
+  // Get unique countries and normalize to codes first, then deduplicate
+  const normalizedCodes = new Set<string>();
+  data.forEach(s => {
+    const country = s.country;
+    // Check if it's already a code
+    if (codeToName[country]) {
+      normalizedCodes.add(country);
+    } else {
+      // Map from name to code
       const code = countryNameToCode[country] || country;
-      const name = codeToName[code] || country;
-      return { code, name };
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
+      normalizedCodes.add(code);
+    }
+  });
+  
+  // Map to country options with codes, putting United States first
+  const countryOptions: CountryOption[] = Array.from(normalizedCodes)
+    .map(code => ({
+      code,
+      name: codeToName[code] || code,
+    }))
+    .sort((a, b) => {
+      // United States always first
+      if (a.code === 'US') return -1;
+      if (b.code === 'US') return 1;
+      return a.name.localeCompare(b.name);
+    });
 
   return countryOptions;
 }
