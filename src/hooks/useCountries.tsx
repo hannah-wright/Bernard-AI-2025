@@ -73,6 +73,32 @@ function findMetroForCity(city: string, countryCode: string): MetroArea | undefi
   );
 }
 
+// Case-insensitive lookup helper
+function normalizeCountryToCode(country: string): string {
+  const trimmed = country.trim();
+  
+  // Check if it's already a valid code
+  if (codeToName[trimmed]) {
+    return trimmed;
+  }
+  
+  // Try direct lookup
+  if (countryNameToCode[trimmed]) {
+    return countryNameToCode[trimmed];
+  }
+  
+  // Try case-insensitive lookup
+  const lowerCountry = trimmed.toLowerCase();
+  for (const [name, code] of Object.entries(countryNameToCode)) {
+    if (name.toLowerCase() === lowerCountry) {
+      return code;
+    }
+  }
+  
+  // Return as-is if no match found
+  return trimmed;
+}
+
 async function fetchUniqueCountries(): Promise<CountryOption[]> {
   const { data, error } = await supabase
     .from('startups')
@@ -84,22 +110,25 @@ async function fetchUniqueCountries(): Promise<CountryOption[]> {
     return [];
   }
 
-  // Get unique countries
-  const uniqueCountries = [...new Set(data.map(s => s.country))];
+  // Get unique countries and normalize to codes first, then deduplicate
+  const normalizedCodes = new Set<string>();
+  data.forEach(s => {
+    const code = normalizeCountryToCode(s.country);
+    normalizedCodes.add(code);
+  });
   
-  // Map to country options with codes
-  const countryOptions: CountryOption[] = uniqueCountries
-    .map(country => {
-      // Check if it's already a code
-      if (codeToName[country]) {
-        return { code: country, name: codeToName[country] };
-      }
-      // Otherwise map from name to code
-      const code = countryNameToCode[country] || country;
-      const name = codeToName[code] || country;
-      return { code, name };
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
+  // Map to country options with codes, putting United States first
+  const countryOptions: CountryOption[] = Array.from(normalizedCodes)
+    .map(code => ({
+      code,
+      name: codeToName[code] || code,
+    }))
+    .sort((a, b) => {
+      // United States always first
+      if (a.code === 'US') return -1;
+      if (b.code === 'US') return 1;
+      return a.name.localeCompare(b.name);
+    });
 
   return countryOptions;
 }
