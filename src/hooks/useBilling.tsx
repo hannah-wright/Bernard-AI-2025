@@ -187,11 +187,15 @@ export const BillingProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      
       toast.success('Subscription will be cancelled at the end of the billing period');
       await refreshSubscription();
     } catch (error) {
       console.error('Error cancelling subscription:', error);
       toast.error('Failed to cancel subscription');
+      // Still refresh in case it actually succeeded
+      await refreshSubscription();
     }
   };
 
@@ -207,11 +211,14 @@ export const BillingProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      
       toast.success('Subscription paused');
       await refreshSubscription();
     } catch (error) {
       console.error('Error pausing subscription:', error);
       toast.error('Failed to pause subscription');
+      await refreshSubscription();
     }
   };
 
@@ -227,11 +234,14 @@ export const BillingProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      
       toast.success('Subscription resumed');
       await refreshSubscription();
     } catch (error) {
       console.error('Error resuming subscription:', error);
       toast.error('Failed to resume subscription');
+      await refreshSubscription();
     }
   };
 
@@ -247,11 +257,14 @@ export const BillingProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      
       toast.success('Subscription reactivated');
       await refreshSubscription();
     } catch (error) {
       console.error('Error reactivating subscription:', error);
       toast.error('Failed to reactivate subscription');
+      await refreshSubscription();
     }
   };
 
