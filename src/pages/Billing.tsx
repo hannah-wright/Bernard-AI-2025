@@ -172,14 +172,15 @@ const Billing = () => {
                     <CardTitle className="flex items-center gap-2">
                       Current Plan: {BILLING_CONFIG.plans[currentPlanKey].name}
                       {subscription.isAnnual && <Badge variant="secondary">Annual</Badge>}
-                      {subscription.cancelAtPeriodEnd && <Badge variant="destructive">Cancelling</Badge>}
+                      {subscription.cancelAtPeriodEnd && <Badge variant="destructive">Cancelled</Badge>}
                     </CardTitle>
                     <CardDescription className="mt-1">
                       {subscription.subscriptionEnd && (
-                        <>
-                          {subscription.cancelAtPeriodEnd ? 'Access until: ' : 'Renews: '}
-                          {new Date(subscription.subscriptionEnd).toLocaleDateString()}
-                        </>
+                        subscription.cancelAtPeriodEnd ? (
+                          <>Subscription cancelled. You have access until {new Date(subscription.subscriptionEnd).toLocaleDateString()}</>
+                        ) : (
+                          <>Renews: {new Date(subscription.subscriptionEnd).toLocaleDateString()}</>
+                        )
                       )}
                     </CardDescription>
                   </div>
