@@ -1,4 +1,4 @@
-# BernardAI - Startup Funding Intelligence Platform
+# BernardAI - Startup VC Intelligence Platform
 
 A VC-focused startup intelligence SaaS platform built with React, TypeScript, and Supabase.
 
