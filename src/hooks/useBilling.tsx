@@ -47,12 +47,27 @@ const defaultSubscription: SubscriptionState = {
 };
 
 export const BillingProvider = ({ children }: { children: ReactNode }) => {
-  const { user, session } = useAuth();
+  const { user } = useAuth();
   const [subscription, setSubscription] = useState<SubscriptionState>(defaultSubscription);
   const [loading, setLoading] = useState(false);
 
+  // Helper to get fresh access token
+  const getFreshToken = async (): Promise<string | null> => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    return sessionData?.session?.access_token || null;
+  };
+
   const refreshSubscription = useCallback(async () => {
-    if (!session?.access_token) {
+    if (!user) {
+      setSubscription(defaultSubscription);
+      return;
+    }
+
+    // Always get fresh session to avoid stale token issues
+    const { data: sessionData } = await supabase.auth.getSession();
+    const freshToken = sessionData?.session?.access_token;
+    
+    if (!freshToken) {
       setSubscription(defaultSubscription);
       return;
     }
@@ -61,7 +76,7 @@ export const BillingProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { data, error } = await supabase.functions.invoke('check-subscription', {
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${freshToken}`,
         },
       });
 
@@ -86,7 +101,7 @@ export const BillingProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setLoading(false);
     }
-  }, [session?.access_token]);
+  }, [user]);
 
   useEffect(() => {
     if (user) {
@@ -105,7 +120,9 @@ export const BillingProvider = ({ children }: { children: ReactNode }) => {
   }, [user, refreshSubscription]);
 
   const createCheckout = async (priceId: string) => {
-    if (!session?.access_token) {
+    const freshToken = await getFreshToken();
+    
+    if (!freshToken) {
       toast.error('Please sign in to subscribe');
       return;
     }
@@ -114,7 +131,7 @@ export const BillingProvider = ({ children }: { children: ReactNode }) => {
       const { data, error } = await supabase.functions.invoke('create-checkout', {
         body: { priceId },
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${freshToken}`,
         },
       });
 
@@ -129,7 +146,8 @@ export const BillingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const openCustomerPortal = async () => {
-    if (!session?.access_token) {
+    const freshToken = await getFreshToken();
+    if (!freshToken) {
       toast.error('Please sign in');
       return;
     }
@@ -137,7 +155,7 @@ export const BillingProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { data, error } = await supabase.functions.invoke('customer-portal', {
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${freshToken}`,
         },
       });
 
@@ -152,7 +170,8 @@ export const BillingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const purchaseCredits = async (priceId: string, credits: number) => {
-    if (!session?.access_token) {
+    const freshToken = await getFreshToken();
+    if (!freshToken) {
       toast.error('Please sign in');
       return;
     }
@@ -161,7 +180,7 @@ export const BillingProvider = ({ children }: { children: ReactNode }) => {
       const { data, error } = await supabase.functions.invoke('purchase-credits', {
         body: { priceId, credits },
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${freshToken}`,
         },
       });
 
@@ -176,13 +195,14 @@ export const BillingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const cancelSubscription = async (reason: string, feedback?: string) => {
-    if (!session?.access_token) return;
+    const freshToken = await getFreshToken();
+    if (!freshToken) return;
 
     try {
       const { data, error } = await supabase.functions.invoke('cancel-subscription', {
         body: { action: 'cancel', reason, feedback },
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${freshToken}`,
         },
       });
 
@@ -205,13 +225,14 @@ export const BillingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const pauseSubscription = async (reason: string) => {
-    if (!session?.access_token) return;
+    const freshToken = await getFreshToken();
+    if (!freshToken) return;
 
     try {
       const { data, error } = await supabase.functions.invoke('cancel-subscription', {
         body: { action: 'pause', reason },
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${freshToken}`,
         },
       });
 
@@ -228,13 +249,14 @@ export const BillingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const resumeSubscription = async () => {
-    if (!session?.access_token) return;
+    const freshToken = await getFreshToken();
+    if (!freshToken) return;
 
     try {
       const { data, error } = await supabase.functions.invoke('cancel-subscription', {
         body: { action: 'resume' },
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${freshToken}`,
         },
       });
 
@@ -251,13 +273,14 @@ export const BillingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const reactivateSubscription = async () => {
-    if (!session?.access_token) return;
+    const freshToken = await getFreshToken();
+    if (!freshToken) return;
 
     try {
       const { data, error } = await supabase.functions.invoke('cancel-subscription', {
         body: { action: 'reactivate' },
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${freshToken}`,
         },
       });
 
@@ -280,13 +303,14 @@ export const BillingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const upgradeSubscription = async (newPriceId: string) => {
-    if (!session?.access_token) return;
+    const freshToken = await getFreshToken();
+    if (!freshToken) return;
 
     try {
       const { data, error } = await supabase.functions.invoke('upgrade-subscription', {
         body: { newPriceId },
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${freshToken}`,
         },
       });
 
