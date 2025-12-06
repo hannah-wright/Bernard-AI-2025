@@ -105,7 +105,11 @@ export const BillingProvider = ({ children }: { children: ReactNode }) => {
   }, [user, refreshSubscription]);
 
   const createCheckout = async (priceId: string) => {
-    if (!session?.access_token) {
+    // Get fresh session to avoid expired token issues
+    const { data: sessionData } = await supabase.auth.getSession();
+    const freshToken = sessionData?.session?.access_token;
+    
+    if (!freshToken) {
       toast.error('Please sign in to subscribe');
       return;
     }
@@ -114,7 +118,7 @@ export const BillingProvider = ({ children }: { children: ReactNode }) => {
       const { data, error } = await supabase.functions.invoke('create-checkout', {
         body: { priceId },
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${freshToken}`,
         },
       });
 
