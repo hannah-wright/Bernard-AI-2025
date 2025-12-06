@@ -12,6 +12,16 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[UPGRADE-SUBSCRIPTION] ${step}${detailsStr}`);
 };
 
+// Credit amounts per plan (monthly)
+const PLAN_CREDITS: Record<string, number> = {
+  'prod_TXoPZKDe4a3oSG': 500,   // Starter Monthly
+  'prod_TXoPssn5zCmlc5': 500,   // Starter Annual
+  'prod_TXoPYwpa9g662R': 1000,  // Growth Monthly
+  'prod_TXoPBxijSeRR6U': 1000,  // Growth Annual
+  'prod_TXoPCC5z4kbhda': 1800,  // Scale Monthly
+  'prod_TXoQm30KS0qUD7': 1800,  // Scale Annual
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -62,7 +72,8 @@ serve(async (req) => {
 
     const subscription = subscriptions.data[0];
     const subscriptionItemId = subscription.items.data[0].id;
-    logStep("Found subscription", { subscriptionId: subscription.id, itemId: subscriptionItemId });
+    const oldProductId = subscription.items.data[0].price.product as string;
+    logStep("Found subscription", { subscriptionId: subscription.id, itemId: subscriptionItemId, oldProductId });
 
     // Update subscription with proration
     const updatedSubscription = await stripe.subscriptions.update(subscription.id, {
@@ -85,11 +96,50 @@ serve(async (req) => {
     // Get the new product ID for updating the profile
     const newProductId = updatedSubscription.items.data[0].price.product as string;
 
-    // Update profile with new subscription tier
-    await supabaseClient
+    // Get current profile credits
+    const { data: profile } = await supabaseClient
       .from('profiles')
-      .update({ subscription_tier: newProductId })
-      .eq('id', user.id);
+      .select('credits_remaining')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    const currentCredits = profile?.credits_remaining || 0;
+    const oldPlanCredits = PLAN_CREDITS[oldProductId] || 0;
+    const newPlanCredits = PLAN_CREDITS[newProductId] || 0;
+
+    // Calculate credit adjustment: add the difference between plans
+    // This gives the user the additional credits from the upgrade immediately
+    let newCredits = currentCredits;
+    if (newPlanCredits > oldPlanCredits) {
+      const creditDifference = newPlanCredits - oldPlanCredits;
+      newCredits = currentCredits + creditDifference;
+      logStep("Adding upgrade credits", { currentCredits, creditDifference, newCredits });
+    }
+
+    // Use admin_update_profile to bypass security trigger
+    const { error: updateError } = await supabaseClient.rpc('admin_update_profile', {
+      target_user_id: user.id,
+      new_credits: newCredits,
+      new_tier: newProductId,
+    });
+
+    if (updateError) {
+      logStep("ERROR updating profile", { error: updateError.message });
+      throw new Error(`Failed to update profile: ${updateError.message}`);
+    }
+
+    logStep("Profile updated", { newProductId, newCredits });
+
+    // Log credit transaction if credits were added
+    if (newCredits > currentCredits) {
+      await supabaseClient.from("credit_transactions").insert({
+        user_id: user.id,
+        amount: newCredits - currentCredits,
+        type: "plan_upgrade",
+        description: `Plan upgrade - ${newCredits - currentCredits} credits added`,
+        stripe_subscription_id: subscription.id,
+      });
+    }
 
     return new Response(JSON.stringify({
       success: true,
@@ -100,6 +150,7 @@ serve(async (req) => {
         priceId: newPriceId,
         currentPeriodEnd: new Date(updatedSubscription.current_period_end * 1000).toISOString(),
       },
+      creditsAdded: newCredits - currentCredits,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
