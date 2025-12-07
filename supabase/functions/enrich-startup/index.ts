@@ -8,11 +8,7 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts"
 
 interface StartupData {
   id: string
@@ -122,6 +118,10 @@ ADVANCED SCORES (critical for VCs):
 - unicorn_likelihood_score (0-100): ML-style score blending traction (25%), market size (25%), founder pedigree (25%), backer track record (25%). Flag is_10x_bet=true for top 5% (score >= 80).
 - backer_quality_score (0-100): Based on lead investor exit rate, co-investors who backed unicorns. Set backer_hot_streak=true if 2+ recent exits.
 - hidden_gem_score (0-100): For under-the-radar startups. Set is_hidden_gem=true if bootstrapped with ARR $500K+, IndieHackers/StarterStory presence, or no Crunchbase profile but strong signals.
+
+REVENUE CONFIDENCE (important):
+- revenue_confidence: "verified" if revenue is publicly stated (founder interview, IndieHackers, press release, investor deck), "estimated" if calculated from signals, "unknown" if insufficient data.
+- revenue_source: Brief note of where revenue data came from (e.g., "Founder interview on TechCrunch", "IndieHackers profile", "Estimated from funding stage", etc.).
 
 Return ONLY a valid JSON object (no markdown, no explanation) with these exact fields:
 {
@@ -257,7 +257,9 @@ Return ONLY a valid JSON object (no markdown, no explanation) with these exact f
   "has_indie_presence": false,
   "has_no_crunchbase": false,
   "recent_patent_filings": 0,
-  "hiring_streak_weeks": 0
+  "hiring_streak_weeks": 0,
+  "revenue_confidence": "estimated",
+  "revenue_source": "Estimated from Series A funding and team size"
 }
 
 FIELD CONSTRAINTS:
@@ -367,9 +369,10 @@ async function enrichWithGemini(startup: StartupData, apiKey: string, retryCount
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
-  }
+  const preflightResponse = handleCorsPrelight(req)
+  if (preflightResponse) return preflightResponse
+  
+  const corsHeaders = getCorsHeaders(req.headers.get("Origin"))
 
   try {
     // Try Gemini first, fall back to Lovable if configured
@@ -523,6 +526,9 @@ Deno.serve(async (req) => {
             has_no_crunchbase: intelligence.has_no_crunchbase || false,
             recent_patent_filings: intelligence.recent_patent_filings || 0,
             hiring_streak_weeks: intelligence.hiring_streak_weeks || 0,
+            // Revenue confidence
+            revenue_confidence: intelligence.revenue_confidence || 'estimated',
+            revenue_source: intelligence.revenue_source || null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', startup.id)

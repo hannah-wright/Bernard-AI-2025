@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Header } from '@/components/layout/Header';
 import { FilterSidebar } from '@/components/dashboard/FilterSidebar';
 import { StartupGrid } from '@/components/dashboard/StartupGrid';
+import { ValueDashboard } from '@/components/dashboard/ValueDashboard';
+import { WhyBernardAIBanner } from '@/components/dashboard/DataDifferentiator';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
 import { useStartups } from '@/hooks/useStartups';
 import { useOnboarding } from '@/hooks/useOnboarding';
@@ -188,6 +190,14 @@ const Index = () => {
       <Header />
       <main>
         <div className="container mx-auto px-4 py-8">
+          {/* Value Dashboard - Shows ROI and value created */}
+          <ValueDashboard />
+          
+          {/* Data Differentiation Banner */}
+          <div className="mb-6">
+            <WhyBernardAIBanner />
+          </div>
+          
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div className="relative w-full sm:w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

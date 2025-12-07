@@ -83,6 +83,7 @@ const SECTORS: { id: Sector; label: string; icon: string }[] = [
 ];
 
 const STAGES: { id: RoundType; label: string }[] = [
+  { id: 'Bootstrapped', label: 'Bootstrapped' },
   { id: 'Pre-Seed', label: 'Pre-Seed' },
   { id: 'Seed', label: 'Seed' },
   { id: 'Series A', label: 'Series A' },

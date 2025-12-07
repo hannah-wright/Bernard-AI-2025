@@ -1,12 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts"
 
 declare const EdgeRuntime: {
   waitUntil: (promise: Promise<unknown>) => void
-}
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
 interface ZyteArticle {
@@ -597,9 +593,10 @@ async function runScrapingTask(zyteApiKey: string, supabaseUrl: string, supabase
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
-  }
+  const preflightResponse = handleCorsPrelight(req)
+  if (preflightResponse) return preflightResponse
+  
+  const corsHeaders = getCorsHeaders(req.headers.get("Origin"))
 
   try {
     const zyteApiKey = Deno.env.get('ZYTE_API_KEY')

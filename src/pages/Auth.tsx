@@ -10,7 +10,11 @@ import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 
 const emailSchema = z.string().email('Please enter a valid email address');
-const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
+const passwordSchema = z.string()
+  .min(8, 'Password must be at least 8 characters')
+  .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+  .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+  .regex(/[0-9]/, 'Password must contain at least one number');
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
@@ -37,7 +41,7 @@ const Auth = () => {
     if (user) {
       navigate('/');
     }
-  }, [user]);
+  }, [user, navigate]);
 
   const validateForm = () => {
     const newErrors: { email?: string; password?: string; inviteCode?: string } = {};
@@ -97,10 +101,11 @@ const Auth = () => {
   const getSignupErrorMessage = (error: Error): { title: string; description: string } => {
     const message = error.message.toLowerCase();
     
+    // Generic message for account existence to prevent email enumeration
     if (message.includes('user already registered') || message.includes('already been registered')) {
       return {
-        title: 'Account already exists',
-        description: 'An account with this email already exists. Please sign in instead.',
+        title: 'Unable to create account',
+        description: 'There was an issue creating your account. Please try signing in or use a different email.',
       };
     }
     if (message.includes('password') && message.includes('weak')) {
