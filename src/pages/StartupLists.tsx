@@ -275,23 +275,74 @@ const StartupLists = () => {
   const exportListToCSV = () => {
     if (!selectedList || items.length === 0) return;
 
-    const headers = ['Name', 'Industry', 'Funding Stage', 'Location', 'Total Raised', 'Notes', 'Added'];
-    const rows = items.map(item => [
-      item.startup?.name || '',
-      item.startup?.industry || '',
-      item.startup?.fundingStage || '',
-      item.startup?.location || '',
-      item.startup?.totalRaised ? `$${item.startup.totalRaised.toLocaleString()}` : '',
-      item.notes || '',
-      new Date(item.createdAt).toLocaleDateString(),
-    ]);
+    const escapeCSV = (value: string | number | undefined | null) => {
+      if (value === null || value === undefined) return '';
+      const str = String(value).replace(/"/g, '""');
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str}"`;
+      }
+      return str;
+    };
 
-    const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const formatCurrency = (amount: number | undefined | null) => {
+      if (!amount) return '';
+      if (amount >= 1000000000) return `$${(amount / 1000000000).toFixed(1)}B`;
+      if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`;
+      if (amount >= 1000) return `$${(amount / 1000).toFixed(0)}K`;
+      return `$${amount}`;
+    };
+
+    // Comprehensive headers
+    const headers = [
+      'Name', 'Website', 'Description',
+      'City', 'State', 'Country',
+      'Sectors', 'Business Model',
+      'Current Round', 'Round Amount', 'Lead Investors',
+      'Total Raised', 
+      'Revenue (Est)', 'Revenue Confidence', 'Team Size (Est)',
+      'Founder Type', 'Has Prior Exit', 'Has FAANG Alumni',
+      'Unicorn Score', 'Backer Quality Score', 'Is Hidden Gem',
+      'Founding Team Score', 'Hiring Velocity Score',
+      'Notes', 'Added to List'
+    ];
+
+    const rows = items.map(item => {
+      const s = item.startup;
+      return [
+        escapeCSV(s?.name),
+        escapeCSV(s?.website),
+        escapeCSV(s?.eli5),
+        escapeCSV(s?.city),
+        escapeCSV(s?.state),
+        escapeCSV(s?.country),
+        escapeCSV(s?.sectors?.join('; ')),
+        escapeCSV(s?.businessModel),
+        escapeCSV(s?.fundingStage),
+        escapeCSV(formatCurrency(s?.lastRoundAmount)),
+        escapeCSV(s?.leadInvestors?.join('; ')),
+        escapeCSV(formatCurrency(s?.totalRaised)),
+        escapeCSV(s?.estimatedRevenue),
+        escapeCSV(s?.revenueConfidence || 'estimated'),
+        escapeCSV(s?.estimatedSize),
+        escapeCSV(s?.founderType),
+        escapeCSV(s?.hasPriorExit ? 'Yes' : 'No'),
+        escapeCSV(s?.hasFaangAlumni ? 'Yes' : 'No'),
+        escapeCSV(s?.unicornLikelihoodScore ? `${s.unicornLikelihoodScore}/100` : ''),
+        escapeCSV(s?.backerQualityScore ? `${s.backerQualityScore}/100` : ''),
+        escapeCSV(s?.isHiddenGem ? 'Yes' : 'No'),
+        escapeCSV(s?.foundingTeamSignalScore ? `${s.foundingTeamSignalScore}/100` : ''),
+        escapeCSV(s?.hiringVelocityScore ? `${s.hiringVelocityScore}/100` : ''),
+        escapeCSV(item.notes),
+        escapeCSV(new Date(item.createdAt).toLocaleDateString()),
+      ].join(',');
+    });
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${selectedList.name.replace(/[^a-z0-9]/gi, '_')}.csv`;
+    a.download = `${selectedList.name.replace(/[^a-z0-9]/gi, '_')}-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };

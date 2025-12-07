@@ -1,6 +1,12 @@
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useNavigate } from 'react-router-dom';
-import { Download, Lock, Sparkles } from 'lucide-react';
+import { Download, Lock, Sparkles, ChevronDown, Settings2 } from 'lucide-react';
 import { useBilling } from '@/hooks/useBilling';
 import { useAuth } from '@/hooks/useAuth';
 import { useCredits } from '@/hooks/useCredits';
@@ -9,10 +15,11 @@ import { toast } from 'sonner';
 
 interface CsvExportCtaProps {
   onExport?: () => void;
+  onCustomExport?: () => void;
   startupCount?: number;
 }
 
-export const CsvExportCta = ({ onExport, startupCount = 0 }: CsvExportCtaProps) => {
+export const CsvExportCta = ({ onExport, onCustomExport, startupCount = 0 }: CsvExportCtaProps) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { subscription } = useBilling();
@@ -23,7 +30,7 @@ export const CsvExportCta = ({ onExport, startupCount = 0 }: CsvExportCtaProps) 
   const exportCost = getCost('export_csv');
   const canAfford = checkCredits('export_csv');
 
-  const handleExport = async () => {
+  const handleExport = async (isCustom: boolean = false) => {
     if (!user) {
       toast.error('Please sign in to export data');
       navigate('/auth');
@@ -52,14 +59,18 @@ export const CsvExportCta = ({ onExport, startupCount = 0 }: CsvExportCtaProps) 
     }
 
     const result = await deductCredits('export_csv', {
-      description: `Exported ${startupCount} startups to CSV`,
+      description: `Exported ${startupCount} startups to CSV${isCustom ? ' (custom)' : ''}`,
     });
 
     if (result.success) {
-      onExport?.();
-      toast.success('Export started', {
-        description: `${exportCost} credits deducted`,
-      });
+      if (isCustom) {
+        onCustomExport?.();
+      } else {
+        onExport?.();
+        toast.success('Export started', {
+          description: `${exportCost} credits deducted`,
+        });
+      }
     }
   };
 
@@ -88,16 +99,32 @@ export const CsvExportCta = ({ onExport, startupCount = 0 }: CsvExportCtaProps) 
     );
   }
 
-  // Has access - show export button
+  // Has access - show export dropdown with options
   return (
-    <Button 
-      variant="outline" 
-      size="sm" 
-      onClick={handleExport}
-      disabled={!canAfford}
-    >
-      <Download className="mr-2 h-4 w-4" />
-      Export CSV ({exportCost} credits)
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button 
+          variant="outline" 
+          size="sm"
+          disabled={!canAfford}
+        >
+          <Download className="mr-2 h-4 w-4" />
+          Export CSV
+          <ChevronDown className="ml-2 h-3 w-3" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => handleExport(false)}>
+          <Download className="mr-2 h-4 w-4" />
+          Quick Export (All Columns)
+          <span className="ml-auto text-xs text-muted-foreground">{exportCost} credits</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleExport(true)}>
+          <Settings2 className="mr-2 h-4 w-4" />
+          Custom Export...
+          <span className="ml-auto text-xs text-muted-foreground">{exportCost} credits</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
