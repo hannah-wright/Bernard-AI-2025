@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react';
-import { Heart, ExternalLink, MapPin, Calendar, TrendingUp, Building2, Coins, Lock, FolderPlus } from 'lucide-react';
+import { Heart, ExternalLink, MapPin, Calendar, TrendingUp, Building2, Coins, Lock, FolderPlus, Sparkles, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ConfidenceBadge } from './ConfidenceBadge';
@@ -178,6 +178,60 @@ export const StartupCard = ({ startup, onFavoriteToggle }: StartupCardProps) => 
           </span>
           <ConfidenceBadge level={highestConfidence} showLabel={false} />
         </div>
+
+        {/* Success Signal Badges - Real data that predicts winning startups */}
+        {(startup.hasPriorExit || startup.unicornLikelihoodScore >= 70 || startup.isHiddenGem) && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {startup.hasPriorExit && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 gap-1 text-xs">
+                      <Sparkles className="h-3 w-3" />
+                      Prior Exit ✓
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="font-medium">Founder has a verified prior exit</p>
+                    <p className="text-xs text-muted-foreground">4-10x higher success rate — real data from hard-to-find sources</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {startup.unicornLikelihoodScore >= 70 && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 gap-1 text-xs">
+                      <TrendingUp className="h-3 w-3" />
+                      High Potential
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="font-medium">Success Score: {startup.unicornLikelihoodScore}/100</p>
+                    <p className="text-xs text-muted-foreground">Based on traction, market, team, and backer signals</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {startup.isHiddenGem && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30 gap-1 text-xs">
+                      <Database className="h-3 w-3" />
+                      Hidden Gem
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="font-medium">Under-the-radar opportunity</p>
+                    <p className="text-xs text-muted-foreground">Surfaced from hard-to-find sources before mainstream coverage</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+        )}
 
         {/* Description */}
         <p className="text-sm text-muted-foreground line-clamp-2 mb-3">

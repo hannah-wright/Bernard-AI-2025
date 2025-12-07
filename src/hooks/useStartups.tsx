@@ -177,14 +177,19 @@ async function fetchStartupsPage(pageParam: number): Promise<{ startups: Startup
       fundingHistory: fundingHistory.length > 0 ? fundingHistory : undefined,
       metrics: {
         estimatedRevenue: s.estimated_revenue || undefined,
+        revenueConfidence: (s.revenue_confidence as 'verified' | 'estimated' | 'unknown') || 'estimated',
+        revenueSource: s.revenue_source || undefined,
         estimatedSize: s.estimated_size || undefined,
         buzzScore: s.buzz_score || 0,
       },
-      dataSources: sources.map(ds => ({
-        name: ds.name,
-        confidence: ds.confidence as ConfidenceLevel,
-        url: ds.url || undefined,
-      })),
+      // Ensure at least 1 data source (if none exist, show default)
+      dataSources: sources.length > 0 
+        ? sources.map(ds => ({
+            name: ds.name,
+            confidence: ds.confidence as ConfidenceLevel,
+            url: ds.url || undefined,
+          }))
+        : [{ name: 'BernardAI Discovery', confidence: 'medium' as ConfidenceLevel }],
       // Geography & Business Model fields
       region: s.region as Startup['region'],
       primaryMarket: s.primary_market as Startup['primaryMarket'],

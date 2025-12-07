@@ -206,7 +206,7 @@ export const BillingProvider = ({ children }: { children: ReactNode }) => {
         },
       });
 
-      console.log('Cancel response:', { data, error });
+      // Debug logging removed for production
 
       // Check for invocation error
       if (error) throw error;
@@ -284,7 +284,7 @@ export const BillingProvider = ({ children }: { children: ReactNode }) => {
         },
       });
 
-      console.log('Reactivate response:', { data, error });
+      // Debug logging removed for production
 
       // Check for invocation error
       if (error) throw error;
