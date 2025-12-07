@@ -297,6 +297,8 @@ export interface Startup {
   fundingHistory?: FundingRoundFull[];
   metrics: {
     estimatedRevenue?: string;
+    revenueConfidence?: 'verified' | 'estimated' | 'unknown';
+    revenueSource?: string; // Where the revenue data came from
     estimatedSize?: string;
     buzzScore: number;
   };

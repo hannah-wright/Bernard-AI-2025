@@ -123,18 +123,6 @@ export function useOrganization() {
     enabled: !!user,
   });
 
-  // Get current user's membership
-  const currentUserMembership = members.find(m => m.userId === user?.id);
-  
-  // Check if current user is the owner (superadmin)
-  const isOwner = organization?.ownerId === user?.id;
-  
-  // Check if current user is an admin (or owner - owners have all admin powers)
-  const isAdmin = isOwner || currentUserMembership?.role === 'admin';
-  
-  // Can manage team (owner or admin)
-  const canManageTeam = isAdmin;
-
   // Fetch organization members
   const {
     data: members = [],
@@ -168,6 +156,18 @@ export function useOrganization() {
     },
     enabled: !!organization,
   });
+
+  // Get current user's membership (must be after members query is defined)
+  const currentUserMembership = members.find(m => m.userId === user?.id);
+  
+  // Check if current user is the owner (superadmin)
+  const isOwner = organization?.ownerId === user?.id;
+  
+  // Check if current user is an admin (or owner - owners have all admin powers)
+  const isAdmin = isOwner || currentUserMembership?.role === 'admin';
+  
+  // Can manage team (owner or admin)
+  const canManageTeam = isAdmin;
 
   // Fetch pending invites (owners and admins can see)
   const {

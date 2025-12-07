@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useBilling } from '@/hooks/useBilling';
 import { useProfile } from '@/hooks/useProfile';
 import { BILLING_CONFIG } from '@/config/billing';
-import { Search, User, LogOut, CreditCard, Coins, FolderHeart } from 'lucide-react';
+import { Search, User, LogOut, CreditCard, Coins, FolderHeart, Settings } from 'lucide-react';
 import { NotificationBell } from './NotificationBell';
 import logo from '@/assets/logo.jpg';
 import {
@@ -71,7 +71,7 @@ export const Header = () => {
               </button>
             )}
             
-            <Button variant="ghost" size="icon" className="hidden md:flex">
+            <Button variant="ghost" size="icon" className="hidden md:flex" aria-label="Search">
               <Search className="h-4 w-4" />
             </Button>
             <NotificationBell />
@@ -79,7 +79,7 @@ export const Header = () => {
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
+                  <Button variant="ghost" size="icon" aria-label="User menu">
                     <User className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -95,6 +95,10 @@ export const Header = () => {
                     </p>
                   </div>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate('/settings')}>
+                    <Settings className="h-4 w-4 mr-2" />
+                    Settings
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/billing')}>
                     <CreditCard className="h-4 w-4 mr-2" />
                     Billing & Plans

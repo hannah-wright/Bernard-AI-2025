@@ -1,4 +1,4 @@
-import { Building2, DollarSign, TrendingUp, Zap } from 'lucide-react';
+import { Building2, DollarSign, TrendingUp, Zap, Database, RefreshCw } from 'lucide-react';
 import { stats } from '@/data/mockStartups';
 
 const formatCurrency = (amount: number) => {
@@ -26,16 +26,16 @@ export const StatsBar = () => {
       change: stats.totalRaisedChange,
     },
     {
-      icon: TrendingUp,
-      label: 'Hot sectors',
-      value: stats.hotSectors.join(', '),
-      subtext: 'Trending',
+      icon: Database,
+      label: 'Hard-to-find sources',
+      value: '50+',
+      subtext: 'Verified data',
     },
     {
-      icon: Zap,
-      label: 'Alerts sent',
-      value: stats.alertsSent.toLocaleString(),
-      subtext: 'Today',
+      icon: RefreshCw,
+      label: 'Updated',
+      value: 'Daily',
+      subtext: 'Live signals',
     },
   ];
 

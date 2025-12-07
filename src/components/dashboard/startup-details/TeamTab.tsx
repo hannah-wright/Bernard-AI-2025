@@ -2,12 +2,13 @@
  * Team Tab Content for Startup Detail Dialog
  */
 
-import { Building2, GraduationCap, Briefcase, AlertTriangle, Award, TrendingUp, Users, Star, Rocket, DollarSign, Crown } from 'lucide-react';
+import { Building2, GraduationCap, Briefcase, AlertTriangle, Award, TrendingUp, Users, Star, Rocket, DollarSign, Crown, Database, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { SectionTitle, ScoreBadge } from './shared';
 import type { StartupDetailTabProps } from './types';
 import { formatCurrency } from '@/lib/formatters';
+import { HardToFindDataBadge, MultiSourceBadge } from '../DataDifferentiator';
 
 export const TeamTab = ({ startup }: StartupDetailTabProps) => {
   const hasTeamData = startup.founderBackground?.founders?.length || startup.teamComposition;
@@ -39,9 +40,12 @@ export const TeamTab = ({ startup }: StartupDetailTabProps) => {
       {/* Founding Team Signal Profile - NEW */}
       {startup.foundingTeamSignal && (
         <div>
-          <SectionTitle tooltip="Composite score based on prior exits, FAANG experience, network strength, and team dynamics. Higher scores correlate with better outcomes.">
-            Founding Team Signal
-          </SectionTitle>
+          <div className="flex items-center gap-2 mb-3">
+            <SectionTitle tooltip="Composite score based on prior exits, FAANG experience, network strength, and team dynamics. Higher scores correlate with better outcomes.">
+              Founding Team Signal
+            </SectionTitle>
+            <MultiSourceBadge count={startup.dataSources?.length || 3} />
+          </div>
           <div className="rounded-lg bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 p-4 space-y-4">
             {/* Main Score */}
             <div className="flex items-center justify-between">
@@ -95,7 +99,11 @@ export const TeamTab = ({ startup }: StartupDetailTabProps) => {
       {/* Prior Exit Details - Enhanced */}
       {startup.hasPriorExit && startup.priorExits && startup.priorExits.length > 0 && (
         <div>
-          <SectionTitle>Prior Exit Details</SectionTitle>
+          <div className="flex items-center gap-2 mb-3">
+            <SectionTitle>Prior Exit Details</SectionTitle>
+            <HardToFindDataBadge />
+            <span className="text-xs text-muted-foreground">• Key success predictor</span>
+          </div>
           <div className="space-y-2">
             {startup.priorExits.map((exit, idx) => (
               <div key={idx} className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3">

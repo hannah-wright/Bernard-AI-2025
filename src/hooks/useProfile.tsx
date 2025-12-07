@@ -18,6 +18,10 @@ interface Profile {
   investment_stages: string[] | null;
   investment_geos: string[] | null;
   organization_id: string | null;
+  // Email notification preferences
+  email_alerts_enabled: boolean;
+  email_weekly_digest: boolean;
+  email_product_updates: boolean;
 }
 
 interface CreditTransaction {

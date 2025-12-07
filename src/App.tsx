@@ -20,6 +20,9 @@ import Billing from "./pages/Billing";
 import VCDeals from "./pages/VCDeals";
 import StartupLists from "./pages/StartupLists";
 import ResetPassword from "./pages/ResetPassword";
+import Settings from "./pages/Settings";
+import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
 import NotFound from "./pages/NotFound";
 
 // Configure React Query with sensible defaults
@@ -135,6 +138,34 @@ const App = () => (
             element={
               <ErrorBoundary>
                 <StartupLists />
+              </ErrorBoundary>
+            } 
+          />
+          
+          {/* Settings */}
+          <Route 
+            path="/settings" 
+            element={
+              <ErrorBoundary>
+                <Settings />
+              </ErrorBoundary>
+            } 
+          />
+          
+          {/* Legal pages */}
+          <Route 
+            path="/terms" 
+            element={
+              <ErrorBoundary>
+                <Terms />
+              </ErrorBoundary>
+            } 
+          />
+          <Route 
+            path="/privacy" 
+            element={
+              <ErrorBoundary>
+                <Privacy />
               </ErrorBoundary>
             } 
           />
