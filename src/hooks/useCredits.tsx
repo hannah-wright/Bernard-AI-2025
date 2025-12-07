@@ -9,7 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useBilling } from '@/hooks/useBilling';
-import { BILLING_CONFIG } from '@/config/billing';
+import { BILLING_CONFIG, hasUnlimitedCredits } from '@/config/billing';
 import { ACTION_COSTS, CREDIT_THRESHOLDS, CreditAction } from '@/config/constants';
 import { creditsApi } from '@/services/api';
 import { toast } from 'sonner';
@@ -27,10 +27,11 @@ export const useCredits = () => {
 
   // Derived values
   const credits = profile?.credits_remaining ?? 0;
+  const unlimitedCredits = hasUnlimitedCredits(subscription.plan);
   const monthlyCredits = subscription.plan 
     ? BILLING_CONFIG.plans[subscription.plan].monthlyCredits 
     : 0;
-  const percentRemaining = monthlyCredits > 0 ? (credits / monthlyCredits) * 100 : 100;
+  const percentRemaining = unlimitedCredits ? 100 : (monthlyCredits > 0 ? (credits / monthlyCredits) * 100 : 100);
 
   // -------------------------------------------------------------------------
   // Effects for credit warnings
@@ -38,18 +39,18 @@ export const useCredits = () => {
   
   // Show upgrade modal when credits drop to low threshold
   useEffect(() => {
-    if (!user || monthlyCredits === 0) return;
+    if (!user || monthlyCredits === 0 || unlimitedCredits) return;
     if (hasShownModalThisSession.current) return;
     
     if (percentRemaining <= CREDIT_THRESHOLDS.lowPercentThreshold && credits > 0) {
       hasShownModalThisSession.current = true;
       setShowUpgradeModal(true);
     }
-  }, [percentRemaining, credits, user, monthlyCredits]);
+  }, [percentRemaining, credits, user, monthlyCredits, unlimitedCredits]);
 
   // Show critical toast when credits are very low
   useEffect(() => {
-    if (!user || credits === 0 || credits > CREDIT_THRESHOLDS.criticalThreshold) return;
+    if (!user || unlimitedCredits || credits === 0 || credits > CREDIT_THRESHOLDS.criticalThreshold) return;
     if (hasShownCriticalToast.current) return;
     
     hasShownCriticalToast.current = true;
@@ -80,9 +81,10 @@ export const useCredits = () => {
    * Check if user has enough credits for an action
    */
   const checkCredits = useCallback((action: CreditAction): boolean => {
+    if (unlimitedCredits) return true;
     const cost = ACTION_COSTS[action];
     return credits >= cost;
-  }, [credits]);
+  }, [credits, unlimitedCredits]);
 
   /**
    * Get the cost of an action
@@ -101,6 +103,13 @@ export const useCredits = () => {
     if (!user) {
       toast.error('Please sign in to continue');
       return { success: false };
+    }
+
+    // Scale plan users have unlimited credits - still track usage but don't deduct
+    if (unlimitedCredits) {
+      // Optionally track the action for analytics without deducting
+      await creditsApi.deductCredits(action, { ...options, skipDeduction: true });
+      return { success: true, creditsRemaining: -1 }; // -1 indicates unlimited
     }
 
     const cost = ACTION_COSTS[action];
@@ -157,7 +166,7 @@ export const useCredits = () => {
     }
 
     return { success: false };
-  }, [user, credits, updateCredits]);
+  }, [user, credits, unlimitedCredits, updateCredits]);
 
   // -------------------------------------------------------------------------
   // Return API
@@ -169,10 +178,11 @@ export const useCredits = () => {
     monthlyCredits,
     percentRemaining,
     currentPlan: subscription.plan,
+    unlimitedCredits,
     
     // Status flags
-    isLow: percentRemaining <= CREDIT_THRESHOLDS.lowPercentThreshold,
-    isCritical: credits <= CREDIT_THRESHOLDS.criticalThreshold,
+    isLow: !unlimitedCredits && percentRemaining <= CREDIT_THRESHOLDS.lowPercentThreshold,
+    isCritical: !unlimitedCredits && credits <= CREDIT_THRESHOLDS.criticalThreshold,
     
     // Operations
     checkCredits,

@@ -27,9 +27,9 @@ export const StatsBar = () => {
     },
     {
       icon: Database,
-      label: 'Hard-to-find sources',
-      value: '50+',
-      subtext: 'Verified data',
+      label: 'Niche data sources',
+      value: 'Many',
+      subtext: 'Verified daily',
     },
     {
       icon: RefreshCw,

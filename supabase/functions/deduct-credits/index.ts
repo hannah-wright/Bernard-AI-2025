@@ -33,7 +33,7 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const { action, description, resourceId } = await req.json();
+    const { action, description, resourceId, skipDeduction } = await req.json();
     if (!action) throw new Error("action is required");
 
     const cost = ACTION_COSTS[action];
@@ -48,6 +48,41 @@ serve(async (req) => {
     const user = userData.user;
     if (!user) throw new Error("User not authenticated");
     logStep("User authenticated", { userId: user.id });
+
+    // Check if user is on Scale plan (unlimited credits)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('subscription_tier')
+      .eq('id', user.id)
+      .single();
+
+    const isUnlimited = profile?.subscription_tier?.toLowerCase() === 'scale';
+
+    // If skipDeduction is true or user has unlimited credits, just track usage
+    if (skipDeduction || isUnlimited) {
+      logStep("Skipping deduction (unlimited credits)", { tier: profile?.subscription_tier });
+      
+      // Optionally log the action for analytics
+      const actionDescription = description || `${action}${resourceId ? ` (${resourceId})` : ''}`;
+      await supabase
+        .from('credit_transactions')
+        .insert({
+          user_id: user.id,
+          amount: 0, // No deduction
+          type: 'usage_tracked',
+          description: `[Unlimited] ${actionDescription}`,
+        });
+
+      return new Response(JSON.stringify({
+        success: true,
+        creditsDeducted: 0,
+        creditsRemaining: -1, // -1 indicates unlimited
+        unlimited: true,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
 
     // Use the RPC function to deduct credits (bypasses the secure_profile_update trigger)
     const actionDescription = description || `${action}${resourceId ? ` (${resourceId})` : ''}`;

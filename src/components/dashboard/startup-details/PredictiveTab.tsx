@@ -115,7 +115,7 @@ export const PredictiveTab = ({ startup }: StartupDetailTabProps) => {
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <span>50+ hard-to-find sources</span>
+              <span>Many hard-to-find niche sources</span>
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />

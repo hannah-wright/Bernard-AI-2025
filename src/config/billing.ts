@@ -58,10 +58,10 @@ export const BILLING_CONFIG = {
     },
     scale: {
       name: 'Scale',
-      monthlyCredits: 1800,
+      monthlyCredits: -1, // unlimited
       users: -1, // unlimited
       savedFilters: -1, // unlimited
-      features: ['1,800 credits/month', 'Unlimited users', 'Unlimited filters', 'CSV export', 'Priority support'],
+      features: ['Unlimited credits', 'Unlimited users', 'Unlimited filters', 'CSV export', 'Priority support'],
       monthly: {
         productId: 'prod_TXoPCC5z4kbhda',
         priceId: 'price_1Sain8A3QDciZJOqbFA3KWj4',
@@ -73,7 +73,7 @@ export const BILLING_CONFIG = {
         price: 916980, // $9,169.80 (15% off)
         monthlyEquivalent: 76415, // ~$764.15/mo
       },
-      overageRate: 50, // $0.50 per credit
+      overageRate: 0, // N/A - unlimited credits
     },
   },
 
@@ -169,4 +169,11 @@ export function getSavedFiltersLimit(tier: string | null | undefined): number {
 // Check if user has unlimited saved filters (scale plan)
 export function hasUnlimitedSavedFilters(tier: string | null | undefined): boolean {
   return getSavedFiltersLimit(tier) === -1;
+}
+
+// Check if user has unlimited credits (scale plan)
+export function hasUnlimitedCredits(tier: string | null | undefined): boolean {
+  if (!tier) return false;
+  const plan = BILLING_CONFIG.plans[tier.toLowerCase() as PlanKey];
+  return plan?.monthlyCredits === -1;
 }
