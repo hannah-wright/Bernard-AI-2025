@@ -225,7 +225,7 @@ export const creditsApi = {
    */
   async deductCredits(
     action: CreditAction,
-    options?: { description?: string; resourceId?: string }
+    options?: { description?: string; resourceId?: string; skipDeduction?: boolean }
   ): Promise<ApiResult<CreditDeductionResult>> {
     const token = await getFreshToken();
     if (!token) {
@@ -238,6 +238,7 @@ export const creditsApi = {
           action,
           description: options?.description,
           resourceId: options?.resourceId,
+          skipDeduction: options?.skipDeduction,
         },
         headers: createAuthHeaders(token),
       });

@@ -137,7 +137,7 @@ export const FreshDataBadge = ({
         <TooltipContent>
           <p className="font-medium">Data updated {date.toLocaleDateString()}</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Continuously refreshed from 50+ sources
+            Continuously refreshed from multiple niche sources
           </p>
         </TooltipContent>
       </Tooltip>
@@ -163,7 +163,7 @@ export const HardToFindDataBadge = ({ className = '' }: { className?: string }) 
       <TooltipContent>
         <p className="font-medium">Real Data from Hard-to-Find Sources</p>
         <p className="text-xs text-muted-foreground mt-1">
-          Aggregated from 50+ sources that identify winning startups
+          Aggregated from many niche sources that identify winning startups
         </p>
       </TooltipContent>
     </Tooltip>
@@ -182,7 +182,7 @@ export const WhyBernardAIBanner = ({ compact = false }: { compact?: boolean }) =
   const differentiators = [
     {
       icon: Database,
-      title: "50+ Hard-to-Find Sources",
+      title: "Many Niche Data Sources",
       description: "Aggregates SEC filings, LinkedIn, news, and niche databases that typical tools don't access",
       whyItMatters: "Find startups before they hit mainstream radar",
     },
@@ -213,7 +213,7 @@ export const WhyBernardAIBanner = ({ compact = false }: { compact?: boolean }) =
     {
       icon: Search,
       title: "Hidden Gem Detection",
-      description: "Scans IndieHackers, ProductHunt, patents, and niche sources to surface pre-hype opportunities",
+      description: "Scans interviews, Q&As, patents, and niche sources to surface pre-hype opportunities",
       whyItMatters: "Discover startups competitors haven't found",
     },
   ];
@@ -222,7 +222,7 @@ export const WhyBernardAIBanner = ({ compact = false }: { compact?: boolean }) =
     return (
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Database className="h-3.5 w-3.5" />
-        <span>Hard-to-find sources + specific criteria for success signals that other LLMs can't provide</span>
+        <span>Curated startup intelligence daily from multiple high-value sources</span>
       </div>
     );
   }
@@ -239,9 +239,9 @@ export const WhyBernardAIBanner = ({ compact = false }: { compact?: boolean }) =
               <Zap className="h-5 w-5 text-primary" />
             </div>
             <div className="text-left">
-              <p className="font-semibold">Real Data That Identifies Winning Startups</p>
+              <p className="font-semibold">Find winners faster, with data & signals the major LLMs don't have</p>
               <p className="text-sm text-muted-foreground">
-                Hard-to-find sources + specific criteria for success signals that other LLMs can't provide
+                Curated startup intelligence daily from multiple high-value sources
               </p>
             </div>
           </div>

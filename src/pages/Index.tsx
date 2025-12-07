@@ -7,11 +7,13 @@ import { WhyBernardAIBanner } from '@/components/dashboard/DataDifferentiator';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
 import { useStartups } from '@/hooks/useStartups';
 import { useOnboarding } from '@/hooks/useOnboarding';
-import { FilterState, SortOption } from '@/types/startup';
+import { FilterState, SortOption, Startup } from '@/types/startup';
 import { Loader2, Search, X } from 'lucide-react';
 import { useCredits } from '@/hooks/useCredits';
 import { UpgradeModal } from '@/components/billing/UpgradeModal';
 import { CsvExportCta } from '@/components/billing/CsvExportCta';
+import { CustomExportDialog } from '@/components/billing/CustomExportDialog';
+import { EXPORT_COLUMNS } from '@/hooks/useExportTemplates';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -50,6 +52,7 @@ const Index = () => {
   } = useCredits();
   const { needsOnboarding, isLoading: onboardingLoading } = useOnboarding();
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showCustomExport, setShowCustomExport] = useState(false);
 
   // Show onboarding for new users
   useEffect(() => {
@@ -62,9 +65,157 @@ const Index = () => {
     setShowOnboarding(false);
   };
 
+  // Helper functions for CSV export
+  const escapeCSV = (value: string | number | undefined | null) => {
+    if (value === null || value === undefined) return '';
+    const str = String(value);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
+  const formatCurrency = (amount: number | undefined | null) => {
+    if (!amount) return '';
+    if (amount >= 1000000000) return `$${(amount / 1000000000).toFixed(1)}B`;
+    if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`;
+    if (amount >= 1000) return `$${(amount / 1000).toFixed(0)}K`;
+    return `$${amount}`;
+  };
+
+  const formatPercent = (value: number | undefined | null) => {
+    if (value === null || value === undefined) return '';
+    return `${(value * 100).toFixed(0)}%`;
+  };
+
+  const formatScore = (score: number | undefined | null) => {
+    if (score === null || score === undefined) return '';
+    return `${score}/100`;
+  };
+
+  // Get value for a specific column key
+  const getColumnValue = (s: Startup, key: string): string => {
+    // Format prior exits
+    const priorExitDetails = s.priorExits?.map(e => 
+      `${e.company_name}${e.acquirer ? ` (acquired by ${e.acquirer})` : ''}${e.exit_year ? ` ${e.exit_year}` : ''}${e.exit_amount ? ` ${formatCurrency(e.exit_amount)}` : ''}`
+    ).join('; ') || '';
+
+    // Format prior IPO
+    const priorIPOInfo = s.priorIPODetails ? 
+      `${s.priorIPODetails.company_name}${s.priorIPODetails.ipo_year ? ` (${s.priorIPODetails.ipo_year})` : ''}${s.priorIPODetails.ticker_symbol ? ` ${s.priorIPODetails.ticker_symbol}` : ''}` : '';
+
+    // Get all investors from funding history
+    const allInvestors = s.fundingHistory?.flatMap(r => [...(r.leadInvestors || []), ...(r.allInvestors || [])]).filter((v, i, a) => a.indexOf(v) === i).join('; ') || s.fundingRound.leadInvestors.join('; ');
+
+    // Get notable investors from social proof
+    const notableInvestors = s.socialProof?.notable_investors?.join('; ') || '';
+
+    const valueMap: Record<string, string> = {
+      // Basic Info
+      name: s.name,
+      website: s.website,
+      description: s.eli5,
+      // Location
+      city: s.location.city,
+      state: s.location.state || '',
+      country: s.location.country,
+      region: s.region || '',
+      // Business
+      sectors: s.sector.join('; '),
+      businessModel: s.businessModel || '',
+      companyType: s.companyType || '',
+      targetCustomer: s.targetCustomer || '',
+      // Funding
+      currentRound: s.fundingRound.type,
+      roundAmount: formatCurrency(s.fundingRound.amount),
+      roundDate: s.fundingRound.date,
+      leadInvestors: s.fundingRound.leadInvestors.join('; '),
+      allInvestors: allInvestors,
+      totalRaised: formatCurrency(s.totalRaised),
+      fundingRoundsCount: String(s.fundingHistory?.length || 1),
+      // Financials
+      revenue: s.metrics.estimatedRevenue || '',
+      revenueConfidence: s.metrics.revenueConfidence || 'estimated',
+      teamSize: s.metrics.estimatedSize || '',
+      // Founder Signals
+      founderType: s.founderType || '',
+      serialFounder: s.isSerialFounder ? 'Yes' : 'No',
+      hasFaangAlumni: s.hasFaangAlumni ? 'Yes' : 'No',
+      hasPriorExit: s.hasPriorExit ? 'Yes' : 'No',
+      priorExitCount: String(s.priorExitCount || 0),
+      priorExitDetails: priorExitDetails,
+      hasPriorIPO: s.hasPriorIPO ? 'Yes' : 'No',
+      priorIPODetails: priorIPOInfo,
+      // Team Signals
+      teamStructure: s.teamStructureType || '',
+      cofoundersWorkedTogether: s.cofoundersWorkedTogetherBefore ? 'Yes' : 'No',
+      foundingTeamScore: formatScore(s.foundingTeamSignal?.score),
+      // Hiring & Growth
+      currentHeadcount: String(s.headcountGrowth?.current || ''),
+      headcount6moAgo: String(s.headcountGrowth?.sixMonthsAgo || ''),
+      headcountGrowthRate: s.headcountGrowth?.growthRate6Mo ? `${s.headcountGrowth.growthRate6Mo}%` : '',
+      engineeringHeadcount: String(s.headcountGrowth?.engineeringCurrent || ''),
+      hiringVelocityScore: formatScore(s.hiringVelocityScore),
+      // Investors
+      investorTrackRecord: s.investorQuality || '',
+      notableInvestors: notableInvestors,
+      leadInvestorExitRate: formatPercent(s.leadInvestorExitRate),
+      investorsWithUnicornExits: s.investorsWithUnicornExits?.join('; ') || '',
+      // ML Scores
+      unicornScore: formatScore(s.unicornLikelihoodScore),
+      is10xBet: s.is10xBet ? 'Yes' : 'No',
+      backerQualityScore: formatScore(s.backerQualityScore),
+      backerHotStreak: s.backerHotStreak ? 'Yes' : 'No',
+      hiddenGemScore: formatScore(s.hiddenGemScore),
+      isHiddenGem: s.isHiddenGem ? 'Yes' : 'No',
+      // Other Signals
+      accelerator: s.accelerator || '',
+      buzzScore: String(s.metrics.buzzScore),
+      hasIndiePresence: s.hasIndiePresence ? 'Yes' : 'No',
+      recentPatentFilings: String(s.recentPatentFilings || ''),
+      hiringStreakWeeks: String(s.hiringStreakWeeks || ''),
+      // Data Quality
+      dataSourcesCount: String(s.dataSources.length),
+      primaryDataSource: s.dataSources[0]?.name || '',
+    };
+
+    return valueMap[key] || '';
+  };
+
+  // Custom export with selected columns
+  const handleCustomExport = (selectedColumns: string[], format: 'csv' | 'tsv' = 'csv') => {
+    const delimiter = format === 'tsv' ? '\t' : ',';
+    const escapeValue = format === 'tsv' 
+      ? (v: string) => v.replace(/\t/g, ' ').replace(/\n/g, ' ')
+      : escapeCSV;
+
+    // Build headers with (Est) suffix where applicable
+    const headers = selectedColumns.map(key => {
+      const col = EXPORT_COLUMNS.find(c => c.key === key);
+      if (!col) return key;
+      return col.isEstimated ? `${col.label} (Est)` : col.label;
+    }).join(delimiter);
+
+    // Build rows
+    const csvContent = startups.map(s => 
+      selectedColumns.map(key => escapeValue(getColumnValue(s, key))).join(delimiter)
+    ).join('\n');
+
+    // Download
+    const mimeType = format === 'tsv' ? 'text/tab-separated-values' : 'text/csv';
+    const blob = new Blob([`${headers}\n${csvContent}`], { type: `${mimeType};charset=utf-8;` });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bernardai-startups-${new Date().toISOString().split('T')[0]}.${format}`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Quick export with all columns (legacy)
   const handleCsvExport = () => {
-    const escapeCSV = (value: string | undefined | null) => {
-      if (!value) return '';
+    const escapeCSV = (value: string | number | undefined | null) => {
+      if (value === null || value === undefined) return '';
       const str = String(value);
       if (str.includes(',') || str.includes('"') || str.includes('\n')) {
         return `"${str.replace(/"/g, '""')}"`;
@@ -72,35 +223,146 @@ const Index = () => {
       return str;
     };
 
-    const formatCurrency = (amount: number) => {
+    const formatCurrency = (amount: number | undefined | null) => {
+      if (!amount) return '';
       if (amount >= 1000000000) return `$${(amount / 1000000000).toFixed(1)}B`;
       if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`;
       if (amount >= 1000) return `$${(amount / 1000).toFixed(0)}K`;
       return `$${amount}`;
     };
 
+    const formatPercent = (value: number | undefined | null) => {
+      if (value === null || value === undefined) return '';
+      return `${(value * 100).toFixed(0)}%`;
+    };
+
+    const formatScore = (score: number | undefined | null) => {
+      if (score === null || score === undefined) return '';
+      return `${score}/100`;
+    };
+
+    // Comprehensive headers for VC analysis
     const headers = [
-      'Name', 'Website', 'City', 'State', 'Country', 'Sectors',
-      'Funding Round', 'Funding Amount', 'Funding Date', 'Lead Investors',
-      'ELI5 Description', 'Est. Revenue', 'Est. Size', 'Buzz Score'
+      // Basic Info
+      'Name', 'Website', 'Description',
+      // Location
+      'City', 'State', 'Country', 'Region',
+      // Sectors & Business
+      'Sectors', 'Business Model', 'Company Type', 'Target Customer',
+      // Current Funding Round
+      'Current Round', 'Round Amount', 'Round Date', 'Lead Investors', 'All Investors',
+      // Funding History
+      'Total Raised', 'Funding Rounds Count',
+      // Financials (marked as estimated where applicable)
+      'Revenue (Est)', 'Revenue Confidence', 'Team Size (Est)', 
+      // Founder & Team Signals
+      'Founder Type', 'Serial Founder', 'Has FAANG Alumni', 
+      'Has Prior Exit', 'Prior Exit Count', 'Prior Exit Details',
+      'Has Prior IPO', 'Prior IPO Details',
+      'Team Structure', 'Cofounders Worked Together Before',
+      'Founding Team Signal Score', 
+      // Hiring & Growth
+      'Current Headcount (Est)', 'Headcount 6mo Ago (Est)', 'Headcount Growth Rate (Est)',
+      'Engineering Headcount (Est)', 'Hiring Velocity Score',
+      // Investor Quality
+      'Investor Track Record', 'Notable Investors',
+      'Lead Investor Exit Rate', 'Investors With Unicorn Exits',
+      // ML Scores
+      'Unicorn Likelihood Score', 'Is 10x Bet',
+      'Backer Quality Score', 'Backer Hot Streak',
+      'Hidden Gem Score', 'Is Hidden Gem',
+      // Other Signals
+      'Accelerator', 'Buzz Score',
+      'Has Indie Presence', 'Recent Patent Filings', 'Hiring Streak (weeks)',
+      // Data Quality
+      'Data Sources Count', 'Primary Data Source'
     ].join(',');
 
-    const csvContent = startups.map(s => [
-      escapeCSV(s.name),
-      escapeCSV(s.website),
-      escapeCSV(s.location.city),
-      escapeCSV(s.location.state),
-      escapeCSV(s.location.country),
-      escapeCSV(s.sector.join('; ')),
-      escapeCSV(s.fundingRound.type),
-      escapeCSV(formatCurrency(s.fundingRound.amount)),
-      escapeCSV(s.fundingRound.date),
-      escapeCSV(s.fundingRound.leadInvestors.join('; ')),
-      escapeCSV(s.eli5),
-      escapeCSV(s.metrics.estimatedRevenue),
-      escapeCSV(s.metrics.estimatedSize),
-      s.metrics.buzzScore
-    ].join(',')).join('\n');
+    const csvContent = startups.map(s => {
+      // Format prior exits
+      const priorExitDetails = s.priorExits?.map(e => 
+        `${e.company_name}${e.acquirer ? ` (acquired by ${e.acquirer})` : ''}${e.exit_year ? ` ${e.exit_year}` : ''}${e.exit_amount ? ` ${formatCurrency(e.exit_amount)}` : ''}`
+      ).join('; ') || '';
+
+      // Format prior IPO
+      const priorIPOInfo = s.priorIPODetails ? 
+        `${s.priorIPODetails.company_name}${s.priorIPODetails.ipo_year ? ` (${s.priorIPODetails.ipo_year})` : ''}${s.priorIPODetails.ticker_symbol ? ` ${s.priorIPODetails.ticker_symbol}` : ''}` : '';
+
+      // Get all investors from funding history
+      const allInvestors = s.fundingHistory?.flatMap(r => [...(r.leadInvestors || []), ...(r.allInvestors || [])]).filter((v, i, a) => a.indexOf(v) === i).join('; ') || s.fundingRound.leadInvestors.join('; ');
+
+      // Get notable investors from social proof
+      const notableInvestors = s.socialProof?.notable_investors?.join('; ') || '';
+
+      return [
+        // Basic Info
+        escapeCSV(s.name),
+        escapeCSV(s.website),
+        escapeCSV(s.eli5),
+        // Location
+        escapeCSV(s.location.city),
+        escapeCSV(s.location.state),
+        escapeCSV(s.location.country),
+        escapeCSV(s.region),
+        // Sectors & Business
+        escapeCSV(s.sector.join('; ')),
+        escapeCSV(s.businessModel),
+        escapeCSV(s.companyType),
+        escapeCSV(s.targetCustomer),
+        // Current Funding Round
+        escapeCSV(s.fundingRound.type),
+        escapeCSV(formatCurrency(s.fundingRound.amount)),
+        escapeCSV(s.fundingRound.date),
+        escapeCSV(s.fundingRound.leadInvestors.join('; ')),
+        escapeCSV(allInvestors),
+        // Funding History
+        escapeCSV(formatCurrency(s.totalRaised)),
+        escapeCSV(s.fundingHistory?.length || 1),
+        // Financials
+        escapeCSV(s.metrics.estimatedRevenue),
+        escapeCSV(s.metrics.revenueConfidence || 'estimated'),
+        escapeCSV(s.metrics.estimatedSize),
+        // Founder & Team Signals
+        escapeCSV(s.founderType),
+        escapeCSV(s.isSerialFounder ? 'Yes' : 'No'),
+        escapeCSV(s.hasFaangAlumni ? 'Yes' : 'No'),
+        escapeCSV(s.hasPriorExit ? 'Yes' : 'No'),
+        escapeCSV(s.priorExitCount),
+        escapeCSV(priorExitDetails),
+        escapeCSV(s.hasPriorIPO ? 'Yes' : 'No'),
+        escapeCSV(priorIPOInfo),
+        escapeCSV(s.teamStructureType),
+        escapeCSV(s.cofoundersWorkedTogetherBefore ? 'Yes' : 'No'),
+        escapeCSV(formatScore(s.foundingTeamSignal?.score)),
+        // Hiring & Growth
+        escapeCSV(s.headcountGrowth?.current),
+        escapeCSV(s.headcountGrowth?.sixMonthsAgo),
+        escapeCSV(s.headcountGrowth?.growthRate6Mo ? `${s.headcountGrowth.growthRate6Mo}%` : ''),
+        escapeCSV(s.headcountGrowth?.engineeringCurrent),
+        escapeCSV(formatScore(s.hiringVelocityScore)),
+        // Investor Quality
+        escapeCSV(s.investorQuality),
+        escapeCSV(notableInvestors),
+        escapeCSV(formatPercent(s.leadInvestorExitRate)),
+        escapeCSV(s.investorsWithUnicornExits?.join('; ')),
+        // ML Scores
+        escapeCSV(formatScore(s.unicornLikelihoodScore)),
+        escapeCSV(s.is10xBet ? 'Yes' : 'No'),
+        escapeCSV(formatScore(s.backerQualityScore)),
+        escapeCSV(s.backerHotStreak ? 'Yes' : 'No'),
+        escapeCSV(formatScore(s.hiddenGemScore)),
+        escapeCSV(s.isHiddenGem ? 'Yes' : 'No'),
+        // Other Signals
+        escapeCSV(s.accelerator),
+        escapeCSV(s.metrics.buzzScore),
+        escapeCSV(s.hasIndiePresence ? 'Yes' : 'No'),
+        escapeCSV(s.recentPatentFilings),
+        escapeCSV(s.hiringStreakWeeks),
+        // Data Quality
+        escapeCSV(s.dataSources.length),
+        escapeCSV(s.dataSources[0]?.name)
+      ].join(',');
+    }).join('\n');
 
     const blob = new Blob([`${headers}\n${csvContent}`], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -202,7 +464,7 @@ const Index = () => {
             <div className="relative w-full sm:w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search startups by name, sector, location..."
+                placeholder="Search startups by name, industry, location..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 pr-9"
@@ -229,7 +491,11 @@ const Index = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <CsvExportCta onExport={handleCsvExport} startupCount={startups.length} />
+              <CsvExportCta 
+                onExport={handleCsvExport} 
+                onCustomExport={() => setShowCustomExport(true)}
+                startupCount={startups.length} 
+              />
             </div>
           </div>
           
@@ -260,6 +526,15 @@ const Index = () => {
         creditsRemaining={credits}
         monthlyCredits={monthlyCredits}
         currentPlan={currentPlan}
+      />
+
+      {/* Custom Export Dialog */}
+      <CustomExportDialog
+        isOpen={showCustomExport}
+        onClose={() => setShowCustomExport(false)}
+        startups={startups}
+        onExport={handleCustomExport}
+        getColumnValue={getColumnValue}
       />
     </div>
   );
