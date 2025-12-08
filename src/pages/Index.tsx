@@ -5,7 +5,7 @@ import { StartupGrid } from '@/components/dashboard/StartupGrid';
 import { ValueDashboard } from '@/components/dashboard/ValueDashboard';
 import { WhyBernardAIBanner } from '@/components/dashboard/DataDifferentiator';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
-import { useStartups } from '@/hooks/useStartups';
+import { useStartups, useStartupSearch } from '@/hooks/useStartups';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { FilterState, SortOption, Startup } from '@/types/startup';
 import { Loader2, Search, X } from 'lucide-react';
@@ -37,7 +37,7 @@ function useDebounce<T>(value: T, delay: number): T {
 
 const Index = () => {
   const { 
-    startups = [], 
+    startups: loadedStartups = [], 
     isLoading,
     hasNextPage,
     isFetchingNextPage,
@@ -54,6 +54,24 @@ const Index = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingJustCompleted, setOnboardingJustCompleted] = useState(false);
   const [showCustomExport, setShowCustomExport] = useState(false);
+  
+  // Search state - moved here for server-side search
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  
+  // Server-side search for finding startups across ALL data
+  const { data: searchResults = [], isLoading: isSearching } = useStartupSearch(debouncedSearchQuery);
+  
+  // Merge loaded startups with search results (search results take priority)
+  const startups = useMemo(() => {
+    if (debouncedSearchQuery.length >= 2 && searchResults.length > 0) {
+      // When searching, show search results merged with loaded data (deduplicated)
+      const searchIds = new Set(searchResults.map(s => s.id));
+      const additionalLoaded = loadedStartups.filter(s => !searchIds.has(s.id));
+      return [...searchResults, ...additionalLoaded];
+    }
+    return loadedStartups;
+  }, [loadedStartups, searchResults, debouncedSearchQuery]);
 
   // Show onboarding for new users (but not if they just completed it)
   useEffect(() => {
@@ -423,12 +441,7 @@ const Index = () => {
     minHiringStreakWeeks: undefined,
   });
 
-  const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('date_added');
-
-  // Debounce search query - wait 300ms after user stops typing before filtering
-  // This makes search feel much faster and reduces unnecessary re-renders
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   // Auto-load all pages when filters are active that need complete data
   // This ensures filtering works across all data, not just loaded pages

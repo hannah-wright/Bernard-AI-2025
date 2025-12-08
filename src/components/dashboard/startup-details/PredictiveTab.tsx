@@ -9,6 +9,7 @@ import { ConfidenceBadge } from '../ConfidenceBadge';
 import { SectionTitle, ScoreBadge } from './shared';
 import type { StartupDetailTabProps } from './types';
 import type { ConfidenceLevel } from '@/types/startup';
+import { cn } from '@/lib/utils';
 
 export const PredictiveTab = ({ startup }: StartupDetailTabProps) => {
   // Calculate highest confidence from data sources
@@ -69,9 +70,14 @@ export const PredictiveTab = ({ startup }: StartupDetailTabProps) => {
           Key Metrics
         </SectionTitle>
         <div className="grid grid-cols-3 gap-4">
-          <div className="rounded-lg bg-secondary/30 p-3">
+          <div className={cn(
+            "rounded-lg p-3",
+            startup.metrics.revenueConfidence === 'verified' 
+              ? "bg-emerald-500/10 border border-emerald-500/20" 
+              : "bg-secondary/30"
+          )}>
             <DataLabel 
-              label={startup.metrics.revenueConfidence === 'verified' ? "Revenue (Verified)" : "Revenue (Estimated)"} 
+              label={startup.metrics.revenueConfidence === 'verified' ? "Revenue ✓ Verified" : "Revenue (Estimated)"} 
               isEstimated={startup.metrics.revenueConfidence !== 'verified'} 
               tooltip={
                 startup.metrics.revenueConfidence === 'verified'
@@ -79,12 +85,22 @@ export const PredictiveTab = ({ startup }: StartupDetailTabProps) => {
                   : methodologyText.estimatedRevenue
               } 
             />
-            <p className="font-medium text-foreground/80">
+            <p className={cn(
+              "font-medium",
+              startup.metrics.revenueConfidence === 'verified' 
+                ? "text-emerald-600 dark:text-emerald-400 text-lg" 
+                : "text-foreground/80"
+            )}>
               {startup.metrics.estimatedRevenue || 'N/A'}
             </p>
             {startup.metrics.revenueSource && (
-              <p className="text-xs text-muted-foreground mt-1 truncate" title={startup.metrics.revenueSource}>
-                {startup.metrics.revenueSource}
+              <p className={cn(
+                "text-xs mt-1",
+                startup.metrics.revenueConfidence === 'verified'
+                  ? "text-emerald-600/80 dark:text-emerald-400/80 font-medium"
+                  : "text-muted-foreground truncate"
+              )} title={startup.metrics.revenueSource}>
+                {startup.metrics.revenueConfidence === 'verified' ? '📰 ' : ''}{startup.metrics.revenueSource}
               </p>
             )}
           </div>
