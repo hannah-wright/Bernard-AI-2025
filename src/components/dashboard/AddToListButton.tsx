@@ -63,7 +63,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 interface AddToListButtonProps {
   startupId: string;
   startupName: string;
-  variant?: 'icon' | 'button';
+  variant?: 'icon' | 'button' | 'full';
   size?: 'sm' | 'default';
   className?: string;
 }
@@ -138,6 +138,18 @@ export const AddToListButton = ({
             {isInAnyList && (
               <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-primary" />
             )}
+          </Button>
+        ) : variant === 'full' ? (
+          <Button
+            variant={isInAnyList ? "secondary" : "outline"}
+            size={size}
+            className={className}
+          >
+            <FolderPlus className="h-4 w-4 mr-2" />
+            {isInAnyList 
+              ? `Saved to ${startupListIds.length} list${startupListIds.length > 1 ? 's' : ''}`
+              : 'Save to List'
+            }
           </Button>
         ) : (
           <Button
