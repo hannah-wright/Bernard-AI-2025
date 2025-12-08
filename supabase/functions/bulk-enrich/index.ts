@@ -47,7 +47,16 @@ Location: {city}, {country}
 Website: {website}
 Current Revenue Estimate: {estimated_revenue}
 
-=== CRITICAL INSTRUCTIONS FOR DATA ACCURACY ===
+=== ⚠️ CRITICAL: DATA ACCURACY IS THE #1 PRIORITY ===
+
+🚫 FORBIDDEN - DO NOT USE THESE PLACEHOLDER VALUES:
+- "$500K ARR" - THIS IS A COMMON DEFAULT. NEVER USE IT UNLESS VERIFIED.
+- "$500K" - Same problem. DO NOT USE.
+- Round numbers like "$1M ARR", "$5M ARR" without a source
+- Any revenue figure you cannot verify with a real source
+
+If you don't know the revenue, set amount to null and confidence to "unknown".
+Better to admit "unknown" than guess incorrectly.
 
 1. REVENUE - Search your knowledge THOROUGHLY:
    - Search for "{name} revenue" - look for TechCrunch, Forbes, Bloomberg mentions
@@ -55,14 +64,18 @@ Current Revenue Estimate: {estimated_revenue}
    - Search for founder interviews mentioning revenue
    - Check if company announced revenue milestones
    
-   Examples of VERIFIED revenue:
+   Examples of VERIFIED revenue (with real sources):
    - "Notion reached $10M ARR" (TechCrunch 2019)
    - "Linear hits $1M ARR" (founder tweet 2020)
    - "Vercel announces $100M ARR" (press release 2023)
    - "Lovable hits $200M ARR" (TechCrunch Nov 2025)
+   - "Cursor reaches $100M ARR" (Bloomberg Dec 2024)
    
-   If you find REAL revenue data, mark confidence as "verified" and cite source.
-   If you can only estimate, mark as "estimated" and explain methodology.
+   RULES:
+   ✅ If you find REAL revenue with a SOURCE, use it and mark "verified"
+   ✅ If you can estimate based on funding/team size, mark "estimated" with methodology
+   ❌ If you have NO DATA, set amount to null and confidence to "unknown"
+   ❌ NEVER use $500K, $500K ARR, or similar placeholder values
 
 2. FUNDING ROUNDS - List ALL rounds you know about:
    For {name}, search your knowledge for:
@@ -99,9 +112,9 @@ Provide JSON response (no markdown, no code blocks, just raw JSON):
 
 {
   "revenue": {
-    "amount": "<string like '$50M ARR' or '$10M revenue' - USE REAL DATA IF FOUND>",
-    "confidence": "<'verified' ONLY if from real public source, otherwise 'estimated'>",
-    "source": "<specific source like 'TechCrunch Jan 2024' or 'Estimated based on team size and funding'>",
+    "amount": "<string like '$50M ARR' OR null if unknown - NEVER USE $500K AS DEFAULT>",
+    "confidence": "<'verified' if real source | 'estimated' if calculated | 'unknown' if no data>",
+    "source": "<specific source like 'TechCrunch Jan 2024' OR 'Unknown - no public data found'>",
     "growth_rate": "<'10x YoY' or '2x YoY' or 'unknown'>"
   },
   "funding_rounds": [
@@ -229,6 +242,7 @@ Deno.serve(async (req) => {
       offset = 0, 
       dry_run = false,
       force_reenrich = false,  // Re-enrich even if already has data
+      fix_bad_revenue = false, // Target startups with placeholder $500K revenue
       startup_id = null  // Enrich specific startup
     } = await req.json().catch(() => ({}))
     
@@ -243,9 +257,20 @@ Deno.serve(async (req) => {
     if (startup_id) {
       // Enrich specific startup
       query = query.eq('id', startup_id)
-    } else if (!force_reenrich) {
-      // Find startups needing enrichment (missing key data)
-      query = query.or('direct_competitors.is.null,revenue_confidence.is.null,revenue_confidence.eq.estimated')
+    } else if (fix_bad_revenue) {
+      // PRIORITY MODE: Fix startups with placeholder $500K revenue
+      console.log('🔧 Fix Bad Revenue mode: targeting startups with $500K placeholder')
+      query = query.ilike('estimated_revenue', '%500K%')
+    } else if (force_reenrich) {
+      // Target ALL startups, prioritizing those with bad data
+      // This will re-enrich everything with improved accuracy
+      console.log('Force re-enrich mode: targeting all startups')
+    } else {
+      // Find startups needing enrichment:
+      // - Missing competitors
+      // - Missing or "estimated" revenue confidence
+      // - Has placeholder $500K revenue
+      query = query.or('direct_competitors.is.null,revenue_confidence.is.null,revenue_confidence.eq.estimated,estimated_revenue.ilike.%500K%')
     }
     
     query = query.range(offset, offset + batch_size - 1)
@@ -317,12 +342,32 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       }
 
-      // Revenue data
+      // Revenue data - WITH VALIDATION to reject placeholder values
       const revenue = enrichment.revenue as Record<string, unknown> | undefined
       if (revenue) {
-        if (revenue.amount) updateData.estimated_revenue = revenue.amount
-        if (revenue.confidence) updateData.revenue_confidence = revenue.confidence
-        if (revenue.source) updateData.revenue_source = revenue.source
+        const revenueAmount = revenue.amount as string | null
+        
+        // VALIDATION: Reject common placeholder values
+        const FORBIDDEN_PLACEHOLDERS = ['$500K', '$500k', '$500K ARR', '$500k ARR', '500K', '500k']
+        const isPlaceholder = revenueAmount && FORBIDDEN_PLACEHOLDERS.some(p => 
+          revenueAmount.toLowerCase().includes(p.toLowerCase())
+        )
+        
+        if (isPlaceholder) {
+          console.log(`  ⚠️ Rejected placeholder revenue "${revenueAmount}" for ${startup.name}`)
+          // Set as unknown instead of using placeholder
+          updateData.estimated_revenue = null
+          updateData.revenue_confidence = 'unknown'
+          updateData.revenue_source = 'No verified data found'
+        } else if (revenueAmount && revenueAmount !== 'null') {
+          updateData.estimated_revenue = revenueAmount
+          updateData.revenue_confidence = revenue.confidence || 'estimated'
+          if (revenue.source) updateData.revenue_source = revenue.source
+        } else {
+          // Revenue is null/unknown
+          updateData.revenue_confidence = 'unknown'
+          updateData.revenue_source = 'No public revenue data found'
+        }
       }
 
       // Scores

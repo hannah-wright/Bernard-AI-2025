@@ -76,10 +76,63 @@
 ❌ Show single funding round when multiple exist  
 ❌ Display inaccurate revenue figures  
 
+## VC Deal Intelligence Enrichment
+
+### Accuracy Requirements for VC Deals
+
+**VC deal data follows the SAME strict accuracy standards as startup data.**
+
+⚠️ **CRITICAL: Accuracy is the #1 priority for all VC deal intelligence.**
+
+1. **Only include publicly announced deals**
+   - Must have a verifiable news source (TechCrunch, Bloomberg, press release)
+   - Never include rumored or unconfirmed deals
+   
+2. **Every deal must have source attribution**
+   - Direct URL to announcement preferred
+   - Source name and date required at minimum
+   
+3. **Do not fabricate any deal information**
+   - If amount is undisclosed, mark as null
+   - If investor list is incomplete, only show confirmed investors
+   - If date is uncertain, don't include the deal
+   
+4. **Quality over quantity**
+   - Better to have 10 verified deals than 50 unverified
+   - Empty results are acceptable if nothing can be verified
+
+### VC Deal Verification Process
+
+1. **Primary Sources for VC Deals**:
+   - TechCrunch / VentureBeat / Bloomberg
+   - Company press releases
+   - SEC filings (for large rounds)
+   - VC firm portfolio pages
+
+2. **Verification Steps**:
+   - Confirm startup name matches exactly
+   - Verify round type and amount from primary source
+   - Cross-check investor names
+   - Validate announcement date
+
+3. **What to Exclude**:
+   - Deals older than 90 days (unless specifically requested)
+   - Deals without public confirmation
+   - Estimated amounts (unless clearly marked)
+
+### Investor Profile Data
+
+For each VC firm or investor profile page:
+- Show only deals with verified data
+- Group by time period for accuracy
+- Include source links where available
+- Show "No verified deals found" rather than fabricated data
+
 ## Quality Assurance
 
 - Regular audits of high-profile startups
 - Compare our data vs Crunchbase/PitchBook
 - User feedback mechanism for corrections
 - Automated alerts for data anomalies
+- **Daily verification of top VC deals against news sources**
 

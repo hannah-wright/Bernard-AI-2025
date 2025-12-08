@@ -205,41 +205,39 @@ export const TeamManagement = () => {
             Invite your team to collaborate on deal sourcing
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center text-center py-4 space-y-4">
-            <div className="flex -space-x-3">
-              {[1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="h-10 w-10 rounded-full bg-muted border-2 border-background flex items-center justify-center"
-                >
-                  <Users className="h-5 w-5 text-muted-foreground" />
-                </div>
-              ))}
-            </div>
-            <div className="space-y-2">
-              <p className="font-medium">Collaborate with your team</p>
-              <ul className="text-sm text-muted-foreground space-y-1 text-left">
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-primary" />
-                  Each member gets {savedFiltersDisplay === '0' ? '3' : savedFiltersDisplay} saved thesis profiles
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-primary" />
-                  Share deal flow insights
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-primary" />
-                  Designate team admins
-                </li>
-              </ul>
-            </div>
-            <Button onClick={() => navigate('/billing')} className="w-full">
-              <Sparkles className="h-4 w-4 mr-2" />
-              Upgrade to Growth
-              <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
+        <CardContent className="flex flex-col items-center text-center space-y-3">
+          <div className="flex -space-x-3">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="h-10 w-10 rounded-full bg-muted border-2 border-background flex items-center justify-center"
+              >
+                <Users className="h-5 w-5 text-muted-foreground" />
+              </div>
+            ))}
           </div>
+          <div className="space-y-2">
+            <p className="font-medium">Collaborate with your team</p>
+            <ul className="text-sm text-muted-foreground space-y-1 text-left mx-auto">
+              <li className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-primary" />
+                Each member gets {savedFiltersDisplay === '0' ? '3' : savedFiltersDisplay} saved thesis profiles
+              </li>
+              <li className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-primary" />
+                Share deal flow insights
+              </li>
+              <li className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-primary" />
+                Designate team admins
+              </li>
+            </ul>
+          </div>
+          <Button onClick={() => navigate('/billing')} className="w-full">
+            <Sparkles className="h-4 w-4 mr-2" />
+            Upgrade to Growth
+            <ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
         </CardContent>
       </Card>
     );

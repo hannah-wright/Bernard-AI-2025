@@ -145,31 +145,6 @@ export const StartupCard = ({ startup, onFavoriteToggle }: StartupCardProps) => 
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-1">
-            {/* Deal Score - Voting */}
-            {user && (
-              <DealScoreBadge startupId={startup.id} />
-            )}
-            {user && (
-              <AddToListButton 
-                startupId={startup.id} 
-                startupName={startup.name}
-                variant="icon"
-                size="sm"
-              />
-            )}
-            <button
-              onClick={handleFavoriteClick}
-              className="p-1.5 rounded-md hover:bg-secondary transition-colors"
-            >
-              <Heart
-                className={cn(
-                  'h-4 w-4 transition-colors',
-                  isFavorite ? 'fill-foreground text-foreground' : 'text-muted-foreground'
-                )}
-              />
-            </button>
-          </div>
         </div>
 
         {/* Funding Info - Simplified for card preview */}

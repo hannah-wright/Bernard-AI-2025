@@ -8,6 +8,7 @@ import { formatCurrency } from '@/lib/formatters';
 import { methodologyText, DataLabel } from '../DataMethodologyTooltips';
 import { SectionTitle } from './shared';
 import type { StartupDetailTabProps } from './types';
+import { Link } from 'react-router-dom';
 
 export const MarketTab = ({ startup }: StartupDetailTabProps) => {
   const hasMarketData = startup.marketContext || startup.competitiveLandscape || startup.tractionMetrics;
@@ -67,8 +68,23 @@ export const MarketTab = ({ startup }: StartupDetailTabProps) => {
                       {formatDate(round.date)}
                     </td>
                     <td className="px-3 py-1.5 text-muted-foreground">
-                      {round.leadInvestors?.slice(0, 2).join(', ') || '-'}
-                      {round.leadInvestors && round.leadInvestors.length > 2 && ` +${round.leadInvestors.length - 2}`}
+                      {round.leadInvestors && round.leadInvestors.length > 0 ? (
+                        <>
+                          {round.leadInvestors.slice(0, 2).map((investor, i) => (
+                            <span key={investor}>
+                              {i > 0 && ', '}
+                              <Link 
+                                to={`/investor/${encodeURIComponent(investor)}`}
+                                className="hover:text-primary transition-colors"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {investor}
+                              </Link>
+                            </span>
+                          ))}
+                          {round.leadInvestors.length > 2 && ` +${round.leadInvestors.length - 2}`}
+                        </>
+                      ) : '-'}
                     </td>
                   </tr>
                 ))}

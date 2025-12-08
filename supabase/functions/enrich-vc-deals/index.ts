@@ -90,11 +90,25 @@ const PROMINENT_ANGELS = [
   { name: 'Cyan Banister', twitter: 'cyantist' },
 ]
 
-const DEAL_RESEARCH_PROMPT = `You are a VC intelligence analyst. Research REAL, VERIFIED recent investment activity.
+const DEAL_RESEARCH_PROMPT = `You are a VC intelligence analyst researching REAL investment activity.
 
-IMPORTANT: Only include deals that are PUBLICLY REPORTED and VERIFIED. Include source URLs where possible.
+=== CRITICAL: DATA ACCURACY IS THE #1 PRIORITY ===
 
-Focus on the last 3 months of deal activity.
+⚠️ ACCURACY REQUIREMENTS (MANDATORY):
+1. ONLY include deals that are PUBLICLY ANNOUNCED and VERIFIABLE
+2. EVERY deal MUST have a real source (TechCrunch, company press release, SEC filing, Crunchbase, etc.)
+3. DO NOT include ANY deal you cannot verify with a real news source
+4. If you're unsure about ANY detail (amount, date, investor), DO NOT include that deal
+5. NEVER fabricate or hallucinate deal information - this destroys user trust
+6. It is BETTER to return 5 verified deals than 20 unverified ones
+
+VERIFICATION STANDARDS:
+- Amount: Only include if publicly reported (not estimated)
+- Date: Must be the actual announcement date, not approximate
+- Investors: Only list investors confirmed in public reports
+- Source URL: MUST be a real, working URL to the source article
+
+Focus on deals from the last 60 days that have been publicly announced.
 
 VCs TO TRACK: {vc_list}
 PROMINENT ANGELS TO TRACK: {angel_list}
@@ -113,8 +127,9 @@ Return a JSON object with this exact structure:
       "deal_date": "2024-11-15",
       "sector": ["AI/ML", "Enterprise"],
       "geography": "US",
-      "source_url": "https://techcrunch.com/...",
-      "source_name": "TechCrunch"
+      "source_url": "https://techcrunch.com/2024/11/15/startup-raises-15m",
+      "source_name": "TechCrunch",
+      "verification_confidence": "high"
     }
   ],
   "angel_deals": [
@@ -127,7 +142,8 @@ Return a JSON object with this exact structure:
       "deal_date": "2024-11-10",
       "sector": ["Consumer", "AI/ML"],
       "twitter_handle": "naval",
-      "linkedin_url": null
+      "source_url": "https://...",
+      "verification_confidence": "high"
     }
   ],
   "sector_trends": [
@@ -144,10 +160,10 @@ DEAL_TYPE options: "lead" (led the round), "follow-on" (participated), "co-inves
 ROUND_TYPE options: "Pre-Seed", "Seed", "Series A", "Series B", "Series C", "Series D+", "Growth"
 GEOGRAPHY options: "US", "EU", "UK", "LATAM", "APAC", "MEA", "India", "Israel"
 SECTOR options: "AI/ML", "Fintech", "Enterprise", "SaaS", "Consumer", "Healthcare", "Climate Tech", "Crypto", "Deep Tech", "Marketplace", "DevTools", "Cybersecurity"
+VERIFICATION_CONFIDENCE: "high" (multiple sources), "medium" (single reputable source), "low" (uncertain - DO NOT INCLUDE)
 
-Include at least 15-20 VC deals and 10-15 angel deals if available.
-Prioritize RECENT deals (last 30 days) and LARGER amounts.
-Only include deals you are confident about - do NOT fabricate data.`
+QUALITY OVER QUANTITY: Only include deals with "high" or "medium" verification confidence.
+Return an empty array rather than include unverified deals.`
 
 async function fetchDealIntelligence(apiKey: string): Promise<DealIntelligence | null> {
   const vcList = TOP_VCS.map(v => v.name).join(', ')
