@@ -58,6 +58,31 @@ Current Revenue Estimate: {estimated_revenue}
 If you don't know the revenue, set amount to null and confidence to "unknown".
 Better to admit "unknown" than guess incorrectly.
 
+=== FIRST: CHECK IF BOOTSTRAPPED OR ACQUIRED ===
+
+⚠️ BEFORE ANYTHING ELSE, determine:
+1. Is this company BOOTSTRAPPED (never raised external funding)?
+   - Search for "bootstrapped", "self-funded", "profitable from day one"
+   - Check if there are NO funding announcements on TechCrunch/Crunchbase
+   - Many viral products are bootstrapped: Carrd, Fathom Analytics, Plausible, Bannerbear, etc.
+   
+2. Was this company ACQUIRED or did it SHUT DOWN?
+   - Search for "[company] acquired" or "[company] acquisition"
+   - Search for "[company] shutdown" or "[company] closes"
+   - If acquired, find: acquirer name, date, amount (if disclosed)
+
+If BOOTSTRAPPED:
+- Set is_bootstrapped = true
+- Set total_funding = 0
+- Set funding_rounds = [] (empty array)
+- Do NOT make up funding rounds
+
+If ACQUIRED:
+- Set was_acquired = true
+- Set acquired_by = "<acquirer name>"
+- Set acquisition_date = "<date if known>"
+- Set acquisition_amount = <amount if disclosed>
+
 1. REVENUE - Search your knowledge THOROUGHLY:
    - Search for "{name} revenue" - look for TechCrunch, Forbes, Bloomberg mentions
    - Search for "{name} ARR" - annual recurring revenue announcements
@@ -111,6 +136,11 @@ Better to admit "unknown" than guess incorrectly.
 Provide JSON response (no markdown, no code blocks, just raw JSON):
 
 {
+  "is_bootstrapped": <true if company never raised external funding, false otherwise>,
+  "was_acquired": <true if company was acquired, false otherwise>,
+  "acquired_by": "<acquirer name OR null>",
+  "acquisition_date": "<YYYY-MM-DD OR null>",
+  "acquisition_amount": <number in USD OR null>,
   "revenue": {
     "amount": "<string like '$50M ARR' OR null if unknown - NEVER USE $500K AS DEFAULT>",
     "confidence": "<'verified' if real source | 'estimated' if calculated | 'unknown' if no data>",
@@ -360,6 +390,30 @@ Deno.serve(async (req) => {
       // Build update object from structured response
       const updateData: Record<string, unknown> = {
         updated_at: new Date().toISOString(),
+        enrichment_version: 7, // New version with bootstrapped/acquisition validation
+      }
+
+      // CRITICAL: Handle bootstrapped status FIRST
+      const isBootstrapped = enrichment.is_bootstrapped as boolean | undefined
+      if (isBootstrapped === true) {
+        updateData.is_bootstrapped = true
+        updateData.total_raised = 0
+        // Don't set funding rounds for bootstrapped companies - they will be handled below
+        console.log(`  ✅ ${startup.name} is BOOTSTRAPPED`)
+      } else if (isBootstrapped === false) {
+        updateData.is_bootstrapped = false
+      }
+
+      // CRITICAL: Handle acquisition status
+      const wasAcquired = enrichment.was_acquired as boolean | undefined
+      if (wasAcquired === true) {
+        updateData.was_acquired = true
+        if (enrichment.acquired_by) updateData.acquired_by = enrichment.acquired_by
+        if (enrichment.acquisition_date) updateData.acquisition_date = enrichment.acquisition_date
+        if (enrichment.acquisition_amount) updateData.acquisition_amount = enrichment.acquisition_amount
+        console.log(`  ✅ ${startup.name} was ACQUIRED by ${enrichment.acquired_by || 'unknown'}`)
+      } else if (wasAcquired === false) {
+        updateData.was_acquired = false
       }
 
       // Revenue data - WITH VALIDATION to reject placeholder values
@@ -407,9 +461,11 @@ Deno.serve(async (req) => {
         if (headcount.growth_yoy_pct) updateData.employee_growth_yoy_percent = headcount.growth_yoy_pct
       }
 
-      // Total funding
-      if (enrichment.total_funding) {
+      // Total funding - ONLY if not bootstrapped
+      if (enrichment.total_funding && !isBootstrapped) {
         updateData.total_raised = enrichment.total_funding
+      } else if (isBootstrapped) {
+        updateData.total_raised = 0
       }
 
       // Competitors
@@ -473,9 +529,9 @@ Deno.serve(async (req) => {
         continue
       }
 
-      // Insert funding rounds (if any new ones)
+      // Insert funding rounds (if any new ones) - BUT NOT FOR BOOTSTRAPPED COMPANIES
       const fundingRounds = enrichment.funding_rounds as Array<Record<string, unknown>> | undefined
-      if (fundingRounds && fundingRounds.length > 0) {
+      if (fundingRounds && fundingRounds.length > 0 && !isBootstrapped) {
         for (const round of fundingRounds) {
           if (round.round_type && round.amount) {
             // Check if this round already exists

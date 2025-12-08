@@ -39,7 +39,8 @@ import { toast } from 'sonner';
 // Import modular tab components
 import { MarketTab, TeamTab, PredictiveTab } from './startup-details';
 import { AddToListButton } from './AddToListButton';
-import { VotingPanel, DealScoreBadge } from './VotingPanel';
+// Voting temporarily hidden
+// import { VotingPanel, DealScoreBadge } from './VotingPanel';
 
 interface StartupCardProps {
   startup: Startup;
@@ -305,22 +306,32 @@ export const StartupCard = ({ startup, onFavoriteToggle }: StartupCardProps) => 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <div className="flex items-center gap-4">
-              <div className="h-14 w-14 rounded-xl bg-secondary flex items-center justify-center">
-                <span className="text-2xl font-semibold text-foreground">
-                  {startup.name.charAt(0)}
-                </span>
-              </div>
-              <div>
-                <DialogTitle className="text-xl">{startup.name}</DialogTitle>
-                <div className="flex items-center gap-2 mt-1">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">
-                    {startup.location.city}
-                    {startup.location.state && `, ${startup.location.state}`}, {startup.location.country}
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="h-14 w-14 rounded-xl bg-secondary flex items-center justify-center">
+                  <span className="text-2xl font-semibold text-foreground">
+                    {startup.name.charAt(0)}
                   </span>
                 </div>
+                <div>
+                  <DialogTitle className="text-xl">{startup.name}</DialogTitle>
+                  <div className="flex items-center gap-2 mt-1">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      {startup.location.city}
+                      {startup.location.state && `, ${startup.location.state}`}, {startup.location.country}
+                    </span>
+                  </div>
+                </div>
               </div>
+              
+              {/* Top Right: Save to List */}
+              {user && (
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Add to List Button (compact) */}
+                  <AddToListButton startupId={startup.id} startupName={startup.name} variant="icon" />
+                </div>
+              )}
             </div>
           </DialogHeader>
 
@@ -344,13 +355,6 @@ export const StartupCard = ({ startup, onFavoriteToggle }: StartupCardProps) => 
             </TabsContent>
           </Tabs>
 
-          {/* Partner Voting / Deal Score */}
-          {user && (
-            <div className="mt-4">
-              <VotingPanel startupId={startup.id} startupName={startup.name} />
-            </div>
-          )}
-
           {/* Actions - Always visible */}
           <div className="flex flex-col gap-3 pt-4 border-t border-border mt-4">
             <div className="flex items-center justify-between gap-3">
@@ -365,13 +369,23 @@ export const StartupCard = ({ startup, onFavoriteToggle }: StartupCardProps) => 
                 </a>
               </Button>
             </div>
-            <Button
-              variant={isFavorite ? 'secondary' : 'outline'}
-              onClick={handleFavoriteClick}
-            >
-              <Heart className={cn('h-4 w-4', isFavorite && 'fill-current')} />
-              {isFavorite ? 'Saved' : 'Save'}
-            </Button>
+            
+            {/* Save to List - Full button with list functionality */}
+            {user ? (
+              <AddToListButton 
+                startupId={startup.id} 
+                startupName={startup.name} 
+                variant="full" 
+                className="w-full"
+              />
+            ) : (
+              <Button variant="outline" asChild className="w-full">
+                <Link to="/auth">
+                  <FolderPlus className="h-4 w-4 mr-2" />
+                  Sign in to Save
+                </Link>
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

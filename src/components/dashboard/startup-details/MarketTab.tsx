@@ -2,7 +2,7 @@
  * Market Tab Content for Startup Detail Dialog
  */
 
-import { Shield, TrendingUp } from 'lucide-react';
+import { Shield, TrendingUp, Building, Landmark, Rocket } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/formatters';
 import { methodologyText, DataLabel } from '../DataMethodologyTooltips';
@@ -19,6 +19,14 @@ export const MarketTab = ({ startup }: StartupDetailTabProps) => {
     return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
   };
 
+  // Check if bootstrapped (no funding raised)
+  const isBootstrapped = startup.isBootstrapped || 
+    (startup.fundingRound.type === 'Bootstrapped') ||
+    (startup.totalRaised === 0 && (!startup.fundingHistory || startup.fundingHistory.length === 0));
+
+  // Check for exit info
+  const hasExitInfo = startup.wasAcquired || startup.hadIpo;
+  
   // Use funding history if available, otherwise fall back to single fundingRound
   const fundingRounds = startup.fundingHistory || [{
     type: startup.fundingRound.type,
@@ -28,70 +36,145 @@ export const MarketTab = ({ startup }: StartupDetailTabProps) => {
     allInvestors: undefined,
   }];
 
+  // Filter out empty/bootstrapped rounds for non-bootstrapped companies
+  const validFundingRounds = fundingRounds.filter(r => r.amount > 0 || r.type !== 'Bootstrapped');
+
   return (
     <div className="space-y-6 mt-4">
-      {/* Funding Section - Compact View */}
-      <div>
-        <SectionTitle>Funding History</SectionTitle>
-        <div className="space-y-2">
-          {/* Total Raised - Compact */}
-          {startup.totalRaised && (
-            <div className="flex items-center justify-between rounded-md bg-primary/10 px-3 py-2">
-              <span className="text-xs font-medium text-muted-foreground">Total Raised</span>
-              <span className="text-lg font-bold text-primary">{formatCurrency(startup.totalRaised)}</span>
+      {/* Exit Info Section - Show if company was acquired or IPO'd */}
+      {hasExitInfo && (
+        <div className="rounded-lg border-2 border-amber-500/30 bg-amber-500/5 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            {startup.wasAcquired ? (
+              <Building className="h-5 w-5 text-amber-500" />
+            ) : (
+              <Landmark className="h-5 w-5 text-amber-500" />
+            )}
+            <SectionTitle className="!mb-0">
+              {startup.wasAcquired ? 'Acquisition' : 'IPO'}
+            </SectionTitle>
+            <Badge className="bg-amber-500/20 text-amber-700 border-amber-500/30">Exit</Badge>
+          </div>
+          
+          {startup.wasAcquired && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Acquired by</span>
+                <span className="font-semibold text-foreground">{startup.acquiredBy || 'Undisclosed'}</span>
+              </div>
+              {startup.acquisitionDate && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Date</span>
+                  <span className="text-foreground">{formatDate(startup.acquisitionDate)}</span>
+                </div>
+              )}
+              {startup.acquisitionAmount && startup.acquisitionAmount > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Amount</span>
+                  <span className="font-bold text-green-600">{formatCurrency(startup.acquisitionAmount)}</span>
+                </div>
+              )}
             </div>
           )}
           
-          {/* Funding Rounds Table - Compact */}
-          <div className="rounded-lg border border-border overflow-hidden">
-            <table className="w-full text-xs">
-              <thead className="bg-secondary/50">
-                <tr>
-                  <th className="text-left font-medium text-muted-foreground px-3 py-1.5">Round</th>
-                  <th className="text-left font-medium text-muted-foreground px-3 py-1.5">Amount</th>
-                  <th className="text-left font-medium text-muted-foreground px-3 py-1.5">Date</th>
-                  <th className="text-left font-medium text-muted-foreground px-3 py-1.5">Lead Investors</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {fundingRounds.map((round, index) => (
-                  <tr key={round.id || index} className={index === 0 ? 'bg-primary/5' : ''}>
-                    <td className="px-3 py-1.5">
-                      <Badge variant={index === 0 ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
-                        {round.type}
-                      </Badge>
-                    </td>
-                    <td className="px-3 py-1.5 font-semibold text-foreground">
-                      {formatCurrency(round.amount)}
-                    </td>
-                    <td className="px-3 py-1.5 text-muted-foreground">
-                      {formatDate(round.date)}
-                    </td>
-                    <td className="px-3 py-1.5 text-muted-foreground">
-                      {round.leadInvestors && round.leadInvestors.length > 0 ? (
-                        <>
-                          {round.leadInvestors.slice(0, 2).map((investor, i) => (
-                            <span key={investor}>
-                              {i > 0 && ', '}
-                              <Link 
-                                to={`/investor/${encodeURIComponent(investor)}`}
-                                className="hover:text-primary transition-colors"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {investor}
-                              </Link>
-                            </span>
-                          ))}
-                          {round.leadInvestors.length > 2 && ` +${round.leadInvestors.length - 2}`}
-                        </>
-                      ) : '-'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {startup.hadIpo && (
+            <div className="space-y-2">
+              {startup.stockTicker && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Ticker</span>
+                  <Badge variant="outline" className="font-mono">{startup.stockTicker}</Badge>
+                </div>
+              )}
+              {startup.ipoDate && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">IPO Date</span>
+                  <span className="text-foreground">{formatDate(startup.ipoDate)}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
+      )}
+
+      {/* Funding Section */}
+      <div>
+        <SectionTitle>Funding</SectionTitle>
+        
+        {isBootstrapped ? (
+          /* Bootstrapped Company Display */
+          <div className="rounded-lg border border-green-500/30 bg-green-500/5 p-4">
+            <div className="flex items-center gap-2">
+              <Rocket className="h-5 w-5 text-green-600" />
+              <span className="font-semibold text-green-700">Bootstrapped</span>
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">
+              This company is self-funded and has not raised external venture capital.
+            </p>
+          </div>
+        ) : (
+          /* Funded Company Display */
+          <div className="space-y-2">
+            {/* Total Raised - Compact */}
+            {startup.totalRaised && startup.totalRaised > 0 && (
+              <div className="flex items-center justify-between rounded-md bg-primary/10 px-3 py-2">
+                <span className="text-xs font-medium text-muted-foreground">Total Raised</span>
+                <span className="text-lg font-bold text-primary">{formatCurrency(startup.totalRaised)}</span>
+              </div>
+            )}
+            
+            {/* Funding Rounds Table - Only show if there are valid rounds */}
+            {validFundingRounds.length > 0 && (
+              <div className="rounded-lg border border-border overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-secondary/50">
+                    <tr>
+                      <th className="text-left font-medium text-muted-foreground px-3 py-1.5">Round</th>
+                      <th className="text-left font-medium text-muted-foreground px-3 py-1.5">Amount</th>
+                      <th className="text-left font-medium text-muted-foreground px-3 py-1.5">Date</th>
+                      <th className="text-left font-medium text-muted-foreground px-3 py-1.5">Lead Investors</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {validFundingRounds.map((round, index) => (
+                      <tr key={round.id || index} className={index === 0 ? 'bg-primary/5' : ''}>
+                        <td className="px-3 py-1.5">
+                          <Badge variant={index === 0 ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
+                            {round.type}
+                          </Badge>
+                        </td>
+                        <td className="px-3 py-1.5 font-semibold text-foreground">
+                          {formatCurrency(round.amount)}
+                        </td>
+                        <td className="px-3 py-1.5 text-muted-foreground">
+                          {formatDate(round.date)}
+                        </td>
+                        <td className="px-3 py-1.5 text-muted-foreground">
+                          {round.leadInvestors && round.leadInvestors.length > 0 ? (
+                            <>
+                              {round.leadInvestors.slice(0, 2).map((investor, i) => (
+                                <span key={investor}>
+                                  {i > 0 && ', '}
+                                  <Link 
+                                    to={`/investor/${encodeURIComponent(investor)}`}
+                                    className="hover:text-primary transition-colors"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {investor}
+                                  </Link>
+                                </span>
+                              ))}
+                              {round.leadInvestors.length > 2 && ` +${round.leadInvestors.length - 2}`}
+                            </>
+                          ) : '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* What they do */}

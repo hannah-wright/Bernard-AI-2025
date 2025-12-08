@@ -393,6 +393,24 @@ export interface Startup {
   hasNoCrunchbase?: boolean;
   recentPatentFilings?: number;
   hiringStreakWeeks?: number;
+  
+  // =============================================================================
+  // Company Status (Bootstrapped, Acquired, IPO)
+  // =============================================================================
+  
+  // Bootstrapped status
+  isBootstrapped?: boolean;
+  
+  // Acquisition info
+  wasAcquired?: boolean;
+  acquiredBy?: string;
+  acquisitionDate?: string;
+  acquisitionAmount?: number;
+  
+  // IPO info
+  hadIpo?: boolean;
+  ipoDate?: string;
+  stockTicker?: string;
 }
 
 // Hiring velocity filter bands
