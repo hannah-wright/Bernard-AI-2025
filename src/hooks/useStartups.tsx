@@ -258,6 +258,15 @@ async function fetchStartupsPage(pageParam: number): Promise<{ startups: Startup
       hasNoCrunchbase: s.has_no_crunchbase ?? false,
       recentPatentFilings: s.recent_patent_filings ?? 0,
       hiringStreakWeeks: s.hiring_streak_weeks ?? 0,
+      // Company Status (Bootstrapped, Acquired, IPO)
+      isBootstrapped: s.is_bootstrapped ?? false,
+      wasAcquired: s.was_acquired ?? false,
+      acquiredBy: s.acquired_by ?? undefined,
+      acquisitionDate: s.acquisition_date ?? undefined,
+      acquisitionAmount: s.acquisition_amount ? Number(s.acquisition_amount) : undefined,
+      hadIpo: s.had_ipo ?? false,
+      ipoDate: s.ipo_date ?? undefined,
+      stockTicker: s.stock_ticker ?? undefined,
       // VC Intelligence Fields
       founderBackground: parseJsonField<FounderBackground>(s.founder_background),
       teamComposition: parseJsonField<TeamComposition>(s.team_composition),
@@ -458,6 +467,15 @@ export function useStartupSearch(searchQuery: string) {
           hasPriorExit: s.has_prior_exit ?? undefined,
           hasFaangAlumni: s.has_faang_alumni ?? undefined,
           isHiddenGem: s.is_hidden_gem ?? undefined,
+          // Company Status (Bootstrapped, Acquired, IPO)
+          isBootstrapped: s.is_bootstrapped ?? false,
+          wasAcquired: s.was_acquired ?? false,
+          acquiredBy: s.acquired_by ?? undefined,
+          acquisitionDate: s.acquisition_date ?? undefined,
+          acquisitionAmount: s.acquisition_amount ? Number(s.acquisition_amount) : undefined,
+          hadIpo: s.had_ipo ?? false,
+          ipoDate: s.ipo_date ?? undefined,
+          stockTicker: s.stock_ticker ?? undefined,
           // VC Intelligence Fields - WERE MISSING!
           founderBackground: parseJsonField<FounderBackground>(s.founder_background),
           teamComposition: parseJsonField<TeamComposition>(s.team_composition),

@@ -272,12 +272,12 @@ export const EmployeeGrowthChart = ({
             isDecreasing && "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300",
             isStable && "bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
           )}>
-            {calculatedGrowth >= 50 && "🚀 Extreme growth - hiring velocity signals strong momentum"}
-            {calculatedGrowth >= 25 && calculatedGrowth < 50 && "📈 Strong growth - team scaling well"}
-            {calculatedGrowth >= 10 && calculatedGrowth < 25 && "✅ Healthy growth - steady expansion"}
-            {calculatedGrowth >= 0 && calculatedGrowth < 10 && "➡️ Stable - focused team"}
-            {calculatedGrowth < 0 && calculatedGrowth > -20 && "⚠️ Slight contraction - possible restructuring"}
-            {calculatedGrowth <= -20 && "🔻 Significant contraction - due diligence recommended"}
+            {calculatedGrowth >= 50 && "🚀 Extreme employee growth - hiring velocity signals strong momentum"}
+            {calculatedGrowth >= 25 && calculatedGrowth < 50 && "📈 Strong employee growth - team scaling well"}
+            {calculatedGrowth >= 10 && calculatedGrowth < 25 && "✅ Healthy employee growth - steady expansion"}
+            {calculatedGrowth >= 0 && calculatedGrowth < 10 && "➡️ Stable headcount - focused team"}
+            {calculatedGrowth < 0 && calculatedGrowth > -20 && "⚠️ Slight headcount contraction - possible restructuring"}
+            {calculatedGrowth <= -20 && "🔻 Significant headcount contraction - due diligence recommended"}
           </div>
         )}
       </div>

@@ -568,49 +568,91 @@ async function updateStartupWithValidation(
   }
 }
 
+/**
+ * DUPLICATE PREVENTION STRATEGY:
+ * 
+ * 1. Query only startups where:
+ *    - enrichment_version < 6 (not yet Zyte-verified)
+ *    - enrichment_started_at IS NULL (not currently being processed)
+ *    - OR enrichment_started_at < 10 minutes ago (stale claim)
+ * 
+ * 2. Before processing, "claim" the startup by setting enrichment_started_at
+ * 
+ * 3. After completion, clear enrichment_started_at and set enrichment_version = 6
+ * 
+ * This prevents multiple parallel batches from processing the same startup.
+ */
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { startup_id, startup_ids, batch_size = 5, force_all = false } = await req.json();
+    const { startup_id, startup_ids, batch_size = 10 } = await req.json();
     
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const now = new Date().toISOString();
+    const staleThreshold = new Date(Date.now() - 10 * 60 * 1000).toISOString(); // 10 min ago
 
-    // Get startups to enrich
-    let query = supabase
-      .from('startups')
-      .select('id, name, description, website, city, country, total_raised')
-      .order('total_raised', { ascending: false, nullsFirst: false });
+    let startupsToProcess: Array<{id: string; name: string; description: string; website?: string; city?: string; country?: string}> = [];
 
     if (startup_id) {
-      query = query.eq('id', startup_id);
+      // Single startup - process regardless of status
+      const { data } = await supabase
+        .from('startups')
+        .select('id, name, description, website, city, country')
+        .eq('id', startup_id)
+        .single();
+      if (data) startupsToProcess = [data];
     } else if (startup_ids && Array.isArray(startup_ids)) {
-      query = query.in('id', startup_ids);
-    } else if (force_all) {
-      // Re-enrich ALL startups
-      query = query.limit(batch_size);
+      // Specific list of startups
+      const { data } = await supabase
+        .from('startups')
+        .select('id, name, description, website, city, country')
+        .in('id', startup_ids);
+      if (data) startupsToProcess = data;
     } else {
-      // Find startups needing enrichment
-      query = query
-        .or('direct_competitors.is.null,founder_background.is.null,was_acquired.is.null,needs_review.eq.true')
-        .neq('enrichment_version', 6)
+      // Find unclaimed startups needing enrichment (PREVENTS DUPLICATES)
+      // Only get startups that:
+      // - Have enrichment_version < 6 (not Zyte-verified)
+      // - Are NOT currently being processed (enrichment_started_at is null or stale)
+      const { data, error } = await supabase
+        .from('startups')
+        .select('id, name, description, website, city, country')
+        .lt('enrichment_version', 6)
+        .or(`enrichment_started_at.is.null,enrichment_started_at.lt.${staleThreshold}`)
+        .order('total_raised', { ascending: false, nullsFirst: false })
         .limit(batch_size);
+      
+      if (error) {
+        throw new Error(`Failed to fetch startups: ${error.message}`);
+      }
+      if (data) startupsToProcess = data;
     }
 
-    const { data: startups, error: fetchError } = await query;
-
-    if (fetchError) {
-      throw new Error(`Failed to fetch startups: ${fetchError.message}`);
-    }
-
-    if (!startups || startups.length === 0) {
+    if (startupsToProcess.length === 0) {
       return new Response(
-        JSON.stringify({ message: "No startups found to enrich", count: 0 }),
+        JSON.stringify({ 
+          message: "No startups available to enrich (all either completed or in progress)", 
+          count: 0,
+          hint: "Check enrichment_version >= 6 for completed startups"
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // CLAIM these startups immediately to prevent other batches from picking them up
+    const startupIds = startupsToProcess.map(s => s.id);
+    await supabase
+      .from('startups')
+      .update({ 
+        enrichment_started_at: now,
+        enrichment_attempts: supabase.rpc ? undefined : 1 // Increment if possible
+      })
+      .in('id', startupIds);
+    
+    console.log(`Claimed ${startupIds.length} startups for enrichment`);
 
     const results: Array<{
       id: string;
@@ -621,63 +663,94 @@ Deno.serve(async (req) => {
       issues: string[];
     }> = [];
 
-    for (const startup of startups) {
+    for (const startup of startupsToProcess) {
       console.log(`\n=== Enriching: ${startup.name} ===`);
       
-      // Step 1: Scrape multiple sources
-      console.log("Scraping sources...");
-      const scrapedData = await scrapeAllSources(startup.name, startup.website);
-      console.log(`Scraped ${scrapedData.length} sources`);
-      
-      // Step 2: Build comprehensive prompt
-      const prompt = buildGeminiPrompt(startup, scrapedData);
-      
-      // Step 3: Analyze with Gemini
-      console.log("Analyzing with Gemini...");
-      const rawEnrichment = await analyzeWithGemini(prompt);
-      
-      if (!rawEnrichment) {
+      try {
+        // Step 1: Scrape multiple sources
+        console.log("Scraping sources...");
+        const scrapedData = await scrapeAllSources(startup.name, startup.website);
+        console.log(`Scraped ${scrapedData.length} sources`);
+        
+        // Step 2: Build comprehensive prompt
+        const prompt = buildGeminiPrompt(startup, scrapedData);
+        
+        // Step 3: Analyze with Gemini
+        console.log("Analyzing with Gemini...");
+        const rawEnrichment = await analyzeWithGemini(prompt);
+        
+        if (!rawEnrichment) {
+          // Clear claim on failure so it can be retried
+          await supabase
+            .from('startups')
+            .update({ enrichment_started_at: null })
+            .eq('id', startup.id);
+            
+          results.push({
+            id: startup.id,
+            name: startup.name,
+            success: false,
+            fields_updated: 0,
+            sources_checked: scrapedData.length,
+            issues: ["Gemini analysis failed"],
+          });
+          continue;
+        }
+        
+        // Step 4: Validate consistency
+        console.log("Validating consistency...");
+        const consistencyIssues = validateConsistency(rawEnrichment);
+        const criticalIssues = (rawEnrichment.critical_issues as unknown as string[]) || [];
+        
+        // Step 5: Filter to only validated fields
+        console.log("Filtering validated fields...");
+        const validatedData = filterValidatedFields(rawEnrichment);
+        
+        // Step 6: Update database (this also sets enrichment_version = 6)
+        console.log("Updating database...");
+        const updateResult = await updateStartupWithValidation(
+          supabase,
+          startup.id,
+          validatedData,
+          consistencyIssues,
+          criticalIssues
+        );
+        
+        // Clear the claim after successful completion
+        await supabase
+          .from('startups')
+          .update({ enrichment_started_at: null })
+          .eq('id', startup.id);
+        
+        results.push({
+          id: startup.id,
+          name: startup.name,
+          success: updateResult.success,
+          fields_updated: updateResult.fieldsUpdated,
+          sources_checked: scrapedData.length + 1, // +1 for Gemini
+          issues: updateResult.issues,
+        });
+        
+      } catch (startupError) {
+        console.error(`Error processing ${startup.name}:`, startupError);
+        // Clear claim on error
+        await supabase
+          .from('startups')
+          .update({ enrichment_started_at: null })
+          .eq('id', startup.id);
+          
         results.push({
           id: startup.id,
           name: startup.name,
           success: false,
           fields_updated: 0,
-          sources_checked: scrapedData.length,
-          issues: ["Gemini analysis failed"],
+          sources_checked: 0,
+          issues: [String(startupError)],
         });
-        continue;
       }
       
-      // Step 4: Validate consistency
-      console.log("Validating consistency...");
-      const consistencyIssues = validateConsistency(rawEnrichment);
-      const criticalIssues = (rawEnrichment.critical_issues as unknown as string[]) || [];
-      
-      // Step 5: Filter to only validated fields
-      console.log("Filtering validated fields...");
-      const validatedData = filterValidatedFields(rawEnrichment);
-      
-      // Step 6: Update database
-      console.log("Updating database...");
-      const updateResult = await updateStartupWithValidation(
-        supabase,
-        startup.id,
-        validatedData,
-        consistencyIssues,
-        criticalIssues
-      );
-      
-      results.push({
-        id: startup.id,
-        name: startup.name,
-        success: updateResult.success,
-        fields_updated: updateResult.fieldsUpdated,
-        sources_checked: scrapedData.length + 1, // +1 for Gemini
-        issues: updateResult.issues,
-      });
-      
-      // Rate limiting delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Rate limiting delay between startups
+      await new Promise(resolve => setTimeout(resolve, 1500));
     }
 
     const successCount = results.filter(r => r.success).length;
@@ -691,6 +764,7 @@ Deno.serve(async (req) => {
           successful: successCount,
           failed: results.length - successCount,
           total_fields_updated: totalFieldsUpdated,
+          zyte_requests_used: results.reduce((sum, r) => sum + r.sources_checked, 0),
         },
         results,
       }),
