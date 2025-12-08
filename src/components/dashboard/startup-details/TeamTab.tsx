@@ -9,6 +9,7 @@ import { SectionTitle, ScoreBadge } from './shared';
 import type { StartupDetailTabProps } from './types';
 import { formatCurrency } from '@/lib/formatters';
 import { HardToFindDataBadge, MultiSourceBadge } from '../DataDifferentiator';
+import { EmployeeGrowthChart } from './EmployeeGrowthChart';
 
 export const TeamTab = ({ startup }: StartupDetailTabProps) => {
   const hasTeamData = startup.founderBackground?.founders?.length || startup.teamComposition;
@@ -16,7 +17,7 @@ export const TeamTab = ({ startup }: StartupDetailTabProps) => {
   // Calculate hiring velocity label
   const getHiringVelocityLabel = (score?: number) => {
     if (!score) return null;
-    if (score >= 80) return { label: 'Explosive Growth', color: 'text-emerald-500', bgColor: 'bg-emerald-500/10' };
+    if (score >= 80) return { label: 'Extreme Growth', color: 'text-emerald-500', bgColor: 'bg-emerald-500/10' };
     if (score >= 60) return { label: 'Strong Hiring', color: 'text-green-500', bgColor: 'bg-green-500/10' };
     if (score >= 40) return { label: 'Moderate Growth', color: 'text-yellow-500', bgColor: 'bg-yellow-500/10' };
     if (score >= 20) return { label: 'Stable', color: 'text-blue-500', bgColor: 'bg-blue-500/10' };
@@ -177,18 +178,23 @@ export const TeamTab = ({ startup }: StartupDetailTabProps) => {
                 {startup.hiringVelocityScore}/100
               </Badge>
             </div>
-            
-            {/* Employee Growth % - if available */}
-            {startup.headcountGrowth?.current && startup.headcountGrowth?.sixMonthsAgo && startup.headcountGrowth.sixMonthsAgo > 0 && (
-              <div className="flex items-center justify-between text-sm mt-3 pt-3 border-t border-border/50">
-                <span className="text-muted-foreground">Employee growth (6 months)</span>
-                <Badge variant="secondary" className="text-xs">
-                  {startup.headcountGrowth.current > startup.headcountGrowth.sixMonthsAgo ? '+' : ''}
-                  {Math.round(((startup.headcountGrowth.current - startup.headcountGrowth.sixMonthsAgo) / startup.headcountGrowth.sixMonthsAgo) * 100)}%
-                </Badge>
-              </div>
-            )}
           </div>
+        </div>
+      )}
+
+      {/* Employee Growth Chart - LinkedIn YoY Data */}
+      {startup.headcountGrowth?.current && startup.headcountGrowth.current > 0 && (
+        <div>
+          <SectionTitle tooltip="Year-over-year employee growth from LinkedIn company page. High growth often signals strong momentum and product-market fit.">
+            Employee Growth
+          </SectionTitle>
+          <EmployeeGrowthChart
+            currentCount={startup.headcountGrowth.current}
+            previousCount={startup.headcountGrowth.twelveMonthsAgo}
+            growthPercent={startup.employeeGrowthYoYPercent ?? startup.headcountGrowth.growthRate12Mo}
+            linkedinUrl={startup.linkedinCompanyUrl ?? startup.headcountGrowth.linkedinCompanyUrl}
+            linkedinLastScraped={startup.headcountGrowth.linkedinLastScraped}
+          />
         </div>
       )}
 
