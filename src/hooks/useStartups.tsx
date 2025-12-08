@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   Startup, 
@@ -49,9 +49,22 @@ const PAGE_SIZE = 50;
 
 // Helper to safely parse JSON fields
 function parseJsonField<T>(field: Json | null | undefined): T | undefined {
-  if (!field || typeof field === 'string' || typeof field === 'number' || typeof field === 'boolean') {
+  if (field === null || field === undefined) {
     return undefined;
   }
+  // If it's a string, try to parse it as JSON (Supabase sometimes returns JSONB as string)
+  if (typeof field === 'string') {
+    try {
+      return JSON.parse(field) as T;
+    } catch {
+      return undefined;
+    }
+  }
+  // If it's a primitive (number, boolean), return undefined
+  if (typeof field === 'number' || typeof field === 'boolean') {
+    return undefined;
+  }
+  // Otherwise it's already an object
   return field as T;
 }
 
@@ -132,9 +145,12 @@ async function fetchStartupsPage(pageParam: number): Promise<{ startups: Startup
     const headcountGrowth: HeadcountGrowth | undefined = s.headcount_current ? {
       current: s.headcount_current,
       sixMonthsAgo: s.headcount_6mo_ago || undefined,
-      twelveMonthsAgo: s.headcount_12mo_ago || undefined,
+      twelveMonthsAgo: s.headcount_1_year_ago || s.headcount_12mo_ago || undefined, // LinkedIn YoY data
       engineeringCurrent: s.engineering_headcount_current || undefined,
       engineeringSixMonthsAgo: s.engineering_headcount_6mo_ago || undefined,
+      growthRate12Mo: s.employee_growth_yoy_percent || undefined, // LinkedIn YoY %
+      linkedinCompanyUrl: s.linkedin_company_url || undefined,
+      linkedinLastScraped: s.linkedin_last_scraped || undefined,
     } : undefined;
 
     // Build founding team signal data if available
@@ -211,6 +227,8 @@ async function fetchStartupsPage(pageParam: number): Promise<{ startups: Startup
       // Hiring velocity & headcount
       headcountGrowth,
       hiringVelocityScore: s.hiring_velocity_score ?? undefined,
+      employeeGrowthYoYPercent: s.employee_growth_yoy_percent ?? undefined, // LinkedIn YoY %
+      linkedinCompanyUrl: s.linkedin_company_url ?? undefined,
       // Founding team signal profile
       foundingTeamSignal,
       teamStructureType: s.team_structure_type as TeamStructureType | undefined,
@@ -284,6 +302,158 @@ export function useStartups() {
     data: uniqueStartups,
     startups: uniqueStartups,
   };
+}
+
+// Server-side search for finding startups across ALL data (not just loaded pages)
+export function useStartupSearch(searchQuery: string) {
+  return useQuery({
+    queryKey: ['startup-search', searchQuery],
+    queryFn: async (): Promise<Startup[]> => {
+      if (!searchQuery || searchQuery.length < 2) {
+        return [];
+      }
+
+      // Search by name, description, city, country, or sectors
+      const { data: startups, error: startupsError } = await supabase
+        .from('startups')
+        .select('*')
+        .gte('enrichment_version', 3)
+        .or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,city.ilike.%${searchQuery}%,country.ilike.%${searchQuery}%`)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (startupsError) throw startupsError;
+      if (!startups || startups.length === 0) return [];
+
+      // Fetch funding rounds for search results
+      const { data: fundingRounds } = await supabase
+        .from('funding_rounds')
+        .select('*')
+        .in('startup_id', startups.map(s => s.id));
+
+      // Fetch data sources for search results
+      const { data: dataSources } = await supabase
+        .from('data_sources')
+        .select('*')
+        .in('startup_id', startups.map(s => s.id));
+
+      // Group funding by startup
+      const allFundingByStartup = (fundingRounds || []).reduce<Record<string, DatabaseFundingRound[]>>((acc, fr) => {
+        if (!acc[fr.startup_id]) acc[fr.startup_id] = [];
+        acc[fr.startup_id].push(fr);
+        return acc;
+      }, {});
+
+      Object.keys(allFundingByStartup).forEach(id => {
+        allFundingByStartup[id].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      });
+
+      const fundingByStartup = Object.fromEntries(
+        Object.entries(allFundingByStartup).map(([id, rounds]) => [id, rounds[0]])
+      );
+
+      const sourcesByStartup = (dataSources || []).reduce<Record<string, DatabaseDataSource[]>>((acc, ds) => {
+        if (!acc[ds.startup_id]) acc[ds.startup_id] = [];
+        acc[ds.startup_id].push(ds);
+        return acc;
+      }, {});
+
+      // Transform to Startup type (reusing same transform logic)
+      return startups.map((s): Startup => {
+        const funding = fundingByStartup[s.id];
+        const sources = sourcesByStartup[s.id] || [];
+        const allFunding = allFundingByStartup[s.id] || [];
+
+        const fundingHistory = allFunding.map(fr => ({
+          id: fr.id,
+          type: fr.round_type as RoundType,
+          amount: fr.amount,
+          date: fr.date,
+          leadInvestors: fr.lead_investors || [],
+          allInvestors: fr.all_investors || undefined,
+          valuation: fr.valuation || undefined,
+          valuationType: fr.valuation_type as 'pre-money' | 'post-money' | undefined,
+        }));
+
+        const headcountGrowth: HeadcountGrowth | undefined = s.headcount_current ? {
+          current: s.headcount_current,
+          sixMonthsAgo: s.headcount_6mo_ago || undefined,
+          twelveMonthsAgo: s.headcount_1_year_ago || s.headcount_12mo_ago || undefined,
+          engineeringCurrent: s.engineering_headcount_current || undefined,
+          engineeringSixMonthsAgo: s.engineering_headcount_6mo_ago || undefined,
+          growthRate12Mo: s.employee_growth_yoy_percent || undefined,
+          linkedinCompanyUrl: s.linkedin_company_url || undefined,
+          linkedinLastScraped: s.linkedin_last_scraped || undefined,
+        } : undefined;
+
+        const foundingTeamSignal: FoundingTeamSignal | undefined = s.founding_team_signal_score ? {
+          score: s.founding_team_signal_score,
+          structureType: s.team_structure_type as TeamStructureType | undefined,
+          cofoundersWorkedTogetherBefore: s.cofounders_worked_together_before || undefined,
+        } : undefined;
+
+        return {
+          id: s.id,
+          name: s.name,
+          logo: s.logo || undefined,
+          description: s.description,
+          createdAt: s.created_at || undefined,
+          eli5: s.eli5,
+          website: s.website,
+          sector: s.sectors as Sector[],
+          location: { city: s.city, state: s.state || undefined, country: s.country },
+          fundingRound: funding ? {
+            type: funding.round_type as RoundType,
+            amount: funding.amount,
+            date: funding.date,
+            leadInvestors: funding.lead_investors || [],
+          } : { type: 'Seed' as RoundType, amount: 0, date: new Date().toISOString().split('T')[0], leadInvestors: [] },
+          fundingHistory,
+          metrics: {
+            estimatedRevenue: s.estimated_revenue || undefined,
+            revenueConfidence: s.revenue_confidence as 'verified' | 'estimated' | 'unknown' || 'unknown',
+            revenueSource: s.revenue_source || undefined,
+            estimatedSize: s.estimated_size || undefined,
+            buzzScore: s.buzz_score || 0,
+          },
+          dataSources: sources.length > 0 ? sources.map(ds => ({
+            name: ds.name,
+            confidence: ds.confidence as ConfidenceLevel,
+            url: ds.url || undefined,
+          })) : [{ name: 'BernardAI Discovery', confidence: 'medium' }],
+          headcountGrowth,
+          hiringVelocityScore: s.hiring_velocity_score ?? undefined,
+          employeeGrowthYoYPercent: s.employee_growth_yoy_percent ?? undefined,
+          linkedinCompanyUrl: s.linkedin_company_url ?? undefined,
+          foundingTeamSignal,
+          unicornLikelihoodScore: s.unicorn_likelihood_score ?? undefined,
+          is10xBet: s.is_10x_bet ?? false,
+          totalRaised: s.total_raised ?? undefined,
+          hasPriorExit: s.has_prior_exit ?? undefined,
+          hasFaangAlumni: s.has_faang_alumni ?? undefined,
+          isHiddenGem: s.is_hidden_gem ?? undefined,
+          // VC Intelligence Fields - WERE MISSING!
+          founderBackground: parseJsonField<FounderBackground>(s.founder_background),
+          teamComposition: parseJsonField<TeamComposition>(s.team_composition),
+          competitiveLandscape: parseJsonField<CompetitiveLandscape>(s.competitive_landscape),
+          tractionMetrics: parseJsonField<TractionMetrics>(s.traction_metrics),
+          unitEconomics: parseJsonField<UnitEconomics>(s.unit_economics),
+          productInfo: parseJsonField<ProductInfo>(s.product_info),
+          defensibilitySignals: parseJsonField<DefensibilitySignals>(s.defensibility_signals),
+          marketContext: parseJsonField<MarketContext>(s.market_context),
+          socialProof: parseJsonField<SocialProof>(s.social_proof),
+          riskFlags: parseJsonField<RiskFlags>(s.risk_flags),
+          priorExits: parseJsonField<PriorExit[]>(s.prior_exits),
+          hasPriorIPO: s.has_prior_ipo ?? undefined,
+          priorIPODetails: parseJsonField<PriorIPODetails>(s.prior_ipo_details),
+          teamStructureType: s.team_structure_type as TeamStructureType | undefined,
+          cofoundersWorkedTogetherBefore: s.cofounders_worked_together_before ?? undefined,
+        };
+      });
+    },
+    enabled: searchQuery.length >= 2,
+    staleTime: 30000, // Cache for 30 seconds
+  });
 }
 
 export function useScrapeStartups() {

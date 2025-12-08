@@ -145,44 +145,60 @@ export const StartupCard = ({ startup, onFavoriteToggle }: StartupCardProps) => 
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-1">
-            {user && (
-              <AddToListButton 
-                startupId={startup.id} 
-                startupName={startup.name}
-                variant="icon"
-                size="sm"
-              />
-            )}
-            <button
-              onClick={handleFavoriteClick}
-              className="p-1.5 rounded-md hover:bg-secondary transition-colors"
-            >
-              <Heart
-                className={cn(
-                  'h-4 w-4 transition-colors',
-                  isFavorite ? 'fill-foreground text-foreground' : 'text-muted-foreground'
-                )}
-              />
-            </button>
-          </div>
         </div>
 
-        {/* Funding Info */}
-        <div className="flex items-center gap-2 mb-3">
-          <Badge variant="secondary" className="font-medium">
-            {startup.fundingRound.type}
-          </Badge>
-          {startup.fundingRound.type === 'Bootstrapped' || startup.fundingRound.amount === 0 ? (
-            <span className="text-sm font-medium text-muted-foreground">
-              Bootstrapped
-            </span>
-          ) : (
-            <span className="text-lg font-semibold text-foreground">
-              {formatCurrency(startup.fundingRound.amount)}
-            </span>
+        {/* Funding Info - Simplified for card preview */}
+        <div className="space-y-2 mb-3">
+          {/* Latest Round + Total Raised */}
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="font-medium">
+              {startup.fundingRound.type}
+            </Badge>
+            {startup.fundingRound.type === 'Bootstrapped' || startup.fundingRound.amount === 0 ? (
+              <span className="text-sm font-medium text-muted-foreground">
+                Bootstrapped
+              </span>
+            ) : (
+              <span className="text-lg font-semibold text-foreground">
+                {formatCurrency(startup.fundingRound.amount)}
+              </span>
+            )}
+            <ConfidenceBadge level={highestConfidence} showLabel={false} />
+          </div>
+          
+          {/* Total Raised - if available and different from latest round */}
+          {startup.totalRaised && startup.totalRaised > startup.fundingRound.amount && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Coins className="h-3 w-3" />
+              <span>Total Raised: <span className="font-medium text-foreground">{formatCurrency(startup.totalRaised)}</span></span>
+            </div>
           )}
-          <ConfidenceBadge level={highestConfidence} showLabel={false} />
+          
+          {/* Revenue with Verification Source */}
+          {startup.metrics.estimatedRevenue && (
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-1.5 text-xs">
+                <TrendingUp className="h-3 w-3 text-muted-foreground" />
+                <span className="text-muted-foreground">Revenue:</span>
+                <span className={cn(
+                  "font-medium",
+                  startup.metrics.revenueConfidence === 'verified' ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"
+                )}>
+                  {startup.metrics.estimatedRevenue}
+                  {startup.metrics.revenueConfidence === 'verified' && ' ✓'}
+                </span>
+                {startup.metrics.revenueConfidence !== 'verified' && (
+                  <span className="text-muted-foreground/70">(est.)</span>
+                )}
+              </div>
+              {/* Show verification source as small text beneath */}
+              {startup.metrics.revenueConfidence === 'verified' && startup.metrics.revenueSource && (
+                <p className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 ml-4 italic">
+                  Confirmed by: {startup.metrics.revenueSource}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Success Signal Badges - Real data that predicts winning startups */}
@@ -267,10 +283,6 @@ export const StartupCard = ({ startup, onFavoriteToggle }: StartupCardProps) => 
             </div>
           )}
           <div className="flex items-center gap-3">
-            {/* Deal Score */}
-            {user && (
-              <DealScoreBadge startupId={startup.id} />
-            )}
             {/* Buzz Score */}
             <TooltipProvider>
               <Tooltip>

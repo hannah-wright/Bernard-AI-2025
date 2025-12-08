@@ -490,6 +490,49 @@ export const FilterSidebar = ({ filters, onFiltersChange }: FilterSidebarProps) 
         </div>
       </FilterSection>
 
+      {/* Total Raised - moved up from Capital Efficiency section */}
+      <FilterSection title="Total Raised" defaultOpen>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs text-muted-foreground">All-time funding</span>
+          <div className="flex rounded-md border border-border overflow-hidden">
+            <button
+              onClick={() => handleTotalRaisedUnitChange('K')}
+              className={`px-2 py-0.5 text-xs transition-colors ${
+                totalRaisedUnit === 'K'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-background text-muted-foreground hover:bg-muted'
+              }`}
+            >
+              K
+            </button>
+            <button
+              onClick={() => handleTotalRaisedUnitChange('M')}
+              className={`px-2 py-0.5 text-xs transition-colors ${
+                totalRaisedUnit === 'M'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-background text-muted-foreground hover:bg-muted'
+              }`}
+            >
+              M
+            </button>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Input
+            type="number"
+            placeholder={`Min (${totalRaisedUnit})`}
+            value={getDisplayValue(filters.totalRaisedMin, totalRaisedUnit) ?? ''}
+            onChange={(e) => handleTotalRaisedMinChange(e.target.value)}
+          />
+          <Input
+            type="number"
+            placeholder={`Max (${totalRaisedUnit})`}
+            value={getDisplayValue(filters.totalRaisedMax, totalRaisedUnit) ?? ''}
+            onChange={(e) => handleTotalRaisedMaxChange(e.target.value)}
+          />
+        </div>
+      </FilterSection>
+
       {/* Industry */}
       <FilterSection title="Industry">
         {renderCheckboxGroup(sectors, 'sectors', 'sector')}
@@ -832,49 +875,6 @@ export const FilterSidebar = ({ filters, onFiltersChange }: FilterSidebarProps) 
 
       <FilterSection title="Investor Track Record">
         {renderCheckboxGroup(investorTrackRecords, 'investorQualities', 'invq')}
-      </FilterSection>
-
-      {/* Capital Efficiency */}
-      <FilterSection title="Total Raised">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs text-muted-foreground">Amount</span>
-          <div className="flex rounded-md border border-border overflow-hidden">
-            <button
-              onClick={() => handleTotalRaisedUnitChange('K')}
-              className={`px-2 py-0.5 text-xs transition-colors ${
-                totalRaisedUnit === 'K'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-background text-muted-foreground hover:bg-muted'
-              }`}
-            >
-              K
-            </button>
-            <button
-              onClick={() => handleTotalRaisedUnitChange('M')}
-              className={`px-2 py-0.5 text-xs transition-colors ${
-                totalRaisedUnit === 'M'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-background text-muted-foreground hover:bg-muted'
-              }`}
-            >
-              M
-            </button>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Input
-            type="number"
-            placeholder={`Min (${totalRaisedUnit})`}
-            value={getDisplayValue(filters.totalRaisedMin, totalRaisedUnit) ?? ''}
-            onChange={(e) => handleTotalRaisedMinChange(e.target.value)}
-          />
-          <Input
-            type="number"
-            placeholder={`Max (${totalRaisedUnit})`}
-            value={getDisplayValue(filters.totalRaisedMax, totalRaisedUnit) ?? ''}
-            onChange={(e) => handleTotalRaisedMaxChange(e.target.value)}
-          />
-        </div>
       </FilterSection>
 
       <FilterSection title="Runway">

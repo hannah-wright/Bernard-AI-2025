@@ -92,12 +92,15 @@ export interface TeamComposition {
 export interface HeadcountGrowth {
   current: number;
   sixMonthsAgo?: number;
-  twelveMonthsAgo?: number;
+  twelveMonthsAgo?: number; // 1 year ago (from LinkedIn)
   engineeringCurrent?: number;
   engineeringSixMonthsAgo?: number;
   growthRate6Mo?: number; // percentage
-  growthRate12Mo?: number;
+  growthRate12Mo?: number; // YoY growth from LinkedIn
   engineeringGrowthRate6Mo?: number;
+  // LinkedIn-specific data
+  linkedinCompanyUrl?: string;
+  linkedinLastScraped?: string;
 }
 
 // Funding round with all investors
@@ -332,6 +335,8 @@ export interface Startup {
   // Hiring velocity & headcount
   headcountGrowth?: HeadcountGrowth;
   hiringVelocityScore?: number; // 0-100
+  employeeGrowthYoYPercent?: number; // YoY % from LinkedIn
+  linkedinCompanyUrl?: string; // LinkedIn company page URL
   
   // Founding team signal profile
   foundingTeamSignal?: FoundingTeamSignal;

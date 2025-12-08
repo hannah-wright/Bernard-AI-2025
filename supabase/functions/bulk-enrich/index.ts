@@ -1,11 +1,18 @@
 /**
- * Bulk Enrichment Edge Function
+ * Bulk Enrichment Edge Function - V3 (Data Quality Focus)
  * 
- * Enriches multiple startups in batches with proper rate limiting.
- * Designed to be called repeatedly to process all startups over time.
+ * CORE PRINCIPLE: Data accuracy and trust are paramount.
+ * Every piece of data must be:
+ * - Verifiable from real sources
+ * - Cross-checked when possible
+ * - Clearly marked as verified vs estimated
  * 
- * Usage: Call with batch_size (default 10) and offset to process in chunks.
- * Gemini limits: 15 RPM for free tier, so we add delays between calls.
+ * This function enriches startups with:
+ * 1. REAL revenue data from news/founder statements
+ * 2. ALL funding rounds (not just latest)
+ * 3. Competitors based on sector
+ * 4. Accurate headcount and growth
+ * 5. Source attribution for every data point
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -30,54 +37,140 @@ interface StartupData {
   buzz_score: number
 }
 
-// Enrichment prompt focused on missing fields + revenue verification
-const ENRICHMENT_PROMPT = `You are a VC analyst with access to founder interviews, IndieHackers, and startup news. Analyze this startup.
+// Comprehensive enrichment prompt - focused on DATA ACCURACY
+const ENRICHMENT_PROMPT = `You are a VC research analyst. Your PRIMARY job is finding ACCURATE, VERIFIABLE data.
 
-STARTUP INFO:
-- Name: {name}
-- Description: {description}
-- ELI5: {eli5}
-- Website: {website}
-- Sectors: {sectors}
-- Location: {city}, {country}
-- Current Est. Revenue: {estimated_revenue}
-- Current Est. Size: {estimated_size}
+STARTUP: {name}
+Description: {description}
+Sectors: {sectors}
+Location: {city}, {country}
+Website: {website}
+Current Revenue Estimate: {estimated_revenue}
 
-IMPORTANT FOR REVENUE:
-1. First, search your knowledge for any publicly stated revenue/ARR for "{name}" from:
-   - Founder interviews (IndieHackers, podcasts, Twitter/X posts)
-   - News articles mentioning "{name} revenue" or "{name} ARR"
-   - Startup profiles on IndieHackers, StarterStory, etc.
-2. If you find actual stated revenue, use that and mark revenue_confidence as "verified"
-3. If you can only estimate based on funding/team size, mark as "estimated"
-4. Include the source if verified (e.g., "IndieHackers interview Dec 2024")
+=== ⚠️ CRITICAL: DATA ACCURACY IS THE #1 PRIORITY ===
 
-Provide a JSON response with ONLY these fields (no markdown, just raw JSON):
+🚫 FORBIDDEN - DO NOT USE THESE PLACEHOLDER VALUES:
+- "$500K ARR" - THIS IS A COMMON DEFAULT. NEVER USE IT UNLESS VERIFIED.
+- "$500K" - Same problem. DO NOT USE.
+- Round numbers like "$1M ARR", "$5M ARR" without a source
+- Any revenue figure you cannot verify with a real source
+
+If you don't know the revenue, set amount to null and confidence to "unknown".
+Better to admit "unknown" than guess incorrectly.
+
+1. REVENUE - Search your knowledge THOROUGHLY:
+   - Search for "{name} revenue" - look for TechCrunch, Forbes, Bloomberg mentions
+   - Search for "{name} ARR" - annual recurring revenue announcements
+   - Search for founder interviews mentioning revenue
+   - Check if company announced revenue milestones
+   
+   Examples of VERIFIED revenue (with real sources):
+   - "Notion reached $10M ARR" (TechCrunch 2019)
+   - "Linear hits $1M ARR" (founder tweet 2020)
+   - "Vercel announces $100M ARR" (press release 2023)
+   - "Lovable hits $200M ARR" (TechCrunch Nov 2025)
+   - "Cursor reaches $100M ARR" (Bloomberg Dec 2024)
+   
+   RULES:
+   ✅ If you find REAL revenue with a SOURCE, use it and mark "verified"
+   ✅ If you can estimate based on funding/team size, mark "estimated" with methodology
+   ❌ If you have NO DATA, set amount to null and confidence to "unknown"
+   ❌ NEVER use $500K, $500K ARR, or similar placeholder values
+
+2. FUNDING ROUNDS - List ALL rounds you know about:
+   For {name}, search your knowledge for:
+   - Seed round (amount, date, lead investor)
+   - Series A (amount, date, lead investor)
+   - Series B, C, D, etc.
+   
+   DO NOT make up funding rounds. Only include rounds you have real knowledge of.
+
+3. COMPETITORS - Based on what {name} does ({description}):
+   List 3-5 direct competitors. Think about:
+   - What category is this? (e.g., CRM, DevTools, AI assistant)
+   - Who else serves the same customers?
+   - Include their funding stage if known
+   
+   Examples:
+   - For Notion: Coda, Confluence, Slite, Obsidian, Roam
+   - For Linear: Jira, Asana, Shortcut, Height
+   - For Vercel: Netlify, Railway, Render, Fly.io
+   - For Lovable: Cursor, Bolt.new, v0, Replit, Windsurf
+
+4. HEADCOUNT - Search for employee count:
+   - LinkedIn company page mentions
+   - Company about pages
+   - Recent news about hiring
+
+5. UNICORN SCORE - Use this formula STRICTLY:
+   - Revenue velocity (0-40): 10x growth = 40, 5x = 30, 2x = 20
+   - Absolute traction (0-25): $100M+ ARR = 25, $50M = 20, $10M = 15
+   - Market (0-20): Hot market = 20, growing = 10
+   - Team (0-15): Prior exit = 15, strong pedigree = 10
+
+Provide JSON response (no markdown, no code blocks, just raw JSON):
 
 {
-  "headcount_current": <number 1-1000, estimate based on company stage and revenue>,
-  "headcount_6mo_ago": <number, slightly less than current if growing>,
-  "engineering_headcount_current": <number, typically 30-50% of total for tech startups>,
-  "engineering_headcount_6mo_ago": <number>,
-  "hiring_velocity_score": <0-100: 80+=explosive, 60-79=strong, 40-59=moderate, 20-39=stable, <20=declining>,
-  "founding_team_signal_score": <0-100 based on: prior exits +30, FAANG senior +20, network +15, worked together +15, structure +10, experience +10>,
-  "team_structure_type": <one of: "solo-technical", "solo-commercial", "technical-ceo-commercial-coo", "commercial-ceo-technical-cto", "balanced-cofounders", "technical-heavy", "commercial-heavy">,
-  "cofounders_worked_together_before": <boolean>,
-  "unicorn_likelihood_score": <0-100: 80+=10x bet, 60-79=high, 40-59=moderate, <40=lower>,
-  "is_10x_bet": <true only if unicorn_likelihood_score >= 80>,
-  "backer_quality_score": <0-100: 80+=elite, 60-79=strong, 40-59=good, <40=standard>,
-  "backer_hot_streak": <boolean, true if investors have 2+ recent exits>,
-  "estimated_revenue": <string like "$1.2M ARR" or "$500K MRR" - update if you found better data>,
-  "revenue_confidence": <"verified" if from a real source, "estimated" if predicted>,
-  "revenue_source": <string describing where you found it, e.g., "IndieHackers interview" or "Estimated from Series A funding and 25 employees" - be specific>
+  "revenue": {
+    "amount": "<string like '$50M ARR' OR null if unknown - NEVER USE $500K AS DEFAULT>",
+    "confidence": "<'verified' if real source | 'estimated' if calculated | 'unknown' if no data>",
+    "source": "<specific source like 'TechCrunch Jan 2024' OR 'Unknown - no public data found'>",
+    "growth_rate": "<'10x YoY' or '2x YoY' or 'unknown'>"
+  },
+  "funding_rounds": [
+    {
+      "round_type": "<Seed|Pre-Seed|Series A|Series B|Series C|Series D+>",
+      "amount": <number in USD>,
+      "date": "<YYYY-MM-DD or YYYY-MM or YYYY>",
+      "lead_investors": ["<investor names>"],
+      "source": "<where you found this>"
+    }
+  ],
+  "total_funding": <number in USD - sum of all rounds>,
+  "competitors": [
+    {
+      "name": "<competitor name>",
+      "stage": "<funding stage if known>",
+      "funding_total": <number or null>,
+      "overlap_pct": <0-100 how similar>
+    }
+  ],
+  "headcount": {
+    "current": <number>,
+    "growth_yoy_pct": <number or null>,
+    "source": "<where you found this>"
+  },
+  "scores": {
+    "unicorn_likelihood": <0-100>,
+    "is_10x_bet": <boolean>,
+    "hiring_velocity": <0-100>,
+    "founding_team_signal": <0-100>,
+    "backer_quality": <0-100>
+  },
+  "team": {
+    "structure_type": "<solo-technical|solo-commercial|technical-ceo-commercial-coo|balanced-cofounders|technical-heavy|commercial-heavy>",
+    "cofounders_worked_together": <boolean or null>,
+    "has_prior_exit": <boolean>,
+    "prior_exits": [
+      {
+        "company_name": "<name>",
+        "exit_year": <year>,
+        "exit_type": "<acquisition|ipo>",
+        "acquirer": "<acquirer name if acquisition>",
+        "amount": <number or null>
+      }
+    ]
+  },
+  "data_sources_used": ["<list of sources you used to gather this data>"]
 }
 
-Be realistic - early stage startups should have lower scores. Base estimates on typical patterns for companies at this stage.
-Revenue confidence should ONLY be "verified" if you have actual knowledge of stated revenue from a real source.`
+IMPORTANT: Be CONSERVATIVE. If you don't have real data, say so. Don't make up numbers.
+Mark revenue as "estimated" unless you have a real source.
+Only include funding rounds you actually know about.`
 
 async function enrichWithGemini(startup: StartupData, apiKey: string): Promise<Record<string, unknown> | null> {
   const prompt = ENRICHMENT_PROMPT
-    .replace('{name}', startup.name)
+    .replace(/{name}/g, startup.name)
     .replace('{description}', startup.description || '')
     .replace('{eli5}', startup.eli5 || '')
     .replace('{website}', startup.website || '')
@@ -96,8 +189,8 @@ async function enrichWithGemini(startup: StartupData, apiKey: string): Promise<R
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
-            temperature: 0.5,
-            maxOutputTokens: 1024,
+            temperature: 0.3, // Lower temperature for more factual responses
+            maxOutputTokens: 2048,
             responseMimeType: 'application/json',
           },
         }),
@@ -144,17 +237,45 @@ Deno.serve(async (req) => {
     }
 
     // Get parameters
-    const { batch_size = 10, offset = 0, dry_run = false } = await req.json().catch(() => ({}))
+    const { 
+      batch_size = 10, 
+      offset = 0, 
+      dry_run = false,
+      force_reenrich = false,  // Re-enrich even if already has data
+      fix_bad_revenue = false, // Target startups with placeholder $500K revenue
+      startup_id = null  // Enrich specific startup
+    } = await req.json().catch(() => ({}))
     
-    console.log(`=== Bulk Enrichment: batch_size=${batch_size}, offset=${offset}, dry_run=${dry_run} ===`)
+    console.log(`=== Bulk Enrichment V3: batch_size=${batch_size}, offset=${offset}, force=${force_reenrich} ===`)
 
-    // Find startups that need enrichment (missing key scores)
-    const { data: startups, error: fetchError } = await supabase
+    // Build query
+    let query = supabase
       .from('startups')
       .select('id, name, description, eli5, website, sectors, city, country, estimated_revenue, estimated_size, buzz_score')
-      .or('unicorn_likelihood_score.is.null,hiring_velocity_score.is.null,founding_team_signal_score.is.null')
       .order('created_at', { ascending: false })
-      .range(offset, offset + batch_size - 1)
+    
+    if (startup_id) {
+      // Enrich specific startup
+      query = query.eq('id', startup_id)
+    } else if (fix_bad_revenue) {
+      // PRIORITY MODE: Fix startups with placeholder $500K revenue
+      console.log('🔧 Fix Bad Revenue mode: targeting startups with $500K placeholder')
+      query = query.ilike('estimated_revenue', '%500K%')
+    } else if (force_reenrich) {
+      // Target ALL startups, prioritizing those with bad data
+      // This will re-enrich everything with improved accuracy
+      console.log('Force re-enrich mode: targeting all startups')
+    } else {
+      // Find startups needing enrichment:
+      // - Missing competitors
+      // - Missing or "estimated" revenue confidence
+      // - Has placeholder $500K revenue
+      query = query.or('direct_competitors.is.null,revenue_confidence.is.null,revenue_confidence.eq.estimated,estimated_revenue.ilike.%500K%')
+    }
+    
+    query = query.range(offset, offset + batch_size - 1)
+
+    const { data: startups, error: fetchError } = await query
 
     if (fetchError) {
       throw new Error(`Failed to fetch startups: ${fetchError.message}`)
@@ -178,14 +299,14 @@ Deno.serve(async (req) => {
     const { count: totalCount } = await supabase
       .from('startups')
       .select('*', { count: 'exact', head: true })
-      .or('unicorn_likelihood_score.is.null,hiring_velocity_score.is.null,founding_team_signal_score.is.null')
+      .or('direct_competitors.is.null,revenue_confidence.is.null,revenue_confidence.eq.estimated')
 
     const results = {
       processed: 0,
       succeeded: 0,
       failed: 0,
       skipped: 0,
-      details: [] as { name: string; status: string; error?: string }[],
+      details: [] as { name: string; status: string; error?: string; sources?: number }[],
     }
 
     // Process each startup with delay to respect rate limits
@@ -214,47 +335,181 @@ Deno.serve(async (req) => {
         continue
       }
 
-      // Build update object - only include revenue fields if we got better data
+      console.log(`  Enrichment received for ${startup.name}:`, JSON.stringify(enrichment).slice(0, 200))
+
+      // Build update object from structured response
       const updateData: Record<string, unknown> = {
-        headcount_current: enrichment.headcount_current,
-        headcount_6mo_ago: enrichment.headcount_6mo_ago,
-        engineering_headcount_current: enrichment.engineering_headcount_current,
-        engineering_headcount_6mo_ago: enrichment.engineering_headcount_6mo_ago,
-        hiring_velocity_score: enrichment.hiring_velocity_score,
-        founding_team_signal_score: enrichment.founding_team_signal_score,
-        team_structure_type: enrichment.team_structure_type,
-        cofounders_worked_together_before: enrichment.cofounders_worked_together_before,
-        unicorn_likelihood_score: enrichment.unicorn_likelihood_score,
-        is_10x_bet: enrichment.is_10x_bet,
-        backer_quality_score: enrichment.backer_quality_score,
-        backer_hot_streak: enrichment.backer_hot_streak,
         updated_at: new Date().toISOString(),
       }
 
-      // Update revenue data if provided
-      if (enrichment.estimated_revenue) {
-        updateData.estimated_revenue = enrichment.estimated_revenue
-      }
-      if (enrichment.revenue_confidence) {
-        updateData.revenue_confidence = enrichment.revenue_confidence
-      }
-      if (enrichment.revenue_source) {
-        updateData.revenue_source = enrichment.revenue_source
+      // Revenue data - WITH VALIDATION to reject placeholder values
+      const revenue = enrichment.revenue as Record<string, unknown> | undefined
+      if (revenue) {
+        const revenueAmount = revenue.amount as string | null
+        
+        // VALIDATION: Reject common placeholder values
+        const FORBIDDEN_PLACEHOLDERS = ['$500K', '$500k', '$500K ARR', '$500k ARR', '500K', '500k']
+        const isPlaceholder = revenueAmount && FORBIDDEN_PLACEHOLDERS.some(p => 
+          revenueAmount.toLowerCase().includes(p.toLowerCase())
+        )
+        
+        if (isPlaceholder) {
+          console.log(`  ⚠️ Rejected placeholder revenue "${revenueAmount}" for ${startup.name}`)
+          // Set as unknown instead of using placeholder
+          updateData.estimated_revenue = null
+          updateData.revenue_confidence = 'unknown'
+          updateData.revenue_source = 'No verified data found'
+        } else if (revenueAmount && revenueAmount !== 'null') {
+          updateData.estimated_revenue = revenueAmount
+          updateData.revenue_confidence = revenue.confidence || 'estimated'
+          if (revenue.source) updateData.revenue_source = revenue.source
+        } else {
+          // Revenue is null/unknown
+          updateData.revenue_confidence = 'unknown'
+          updateData.revenue_source = 'No public revenue data found'
+        }
       }
 
-      // Update the startup with enriched data
+      // Scores
+      const scores = enrichment.scores as Record<string, unknown> | undefined
+      if (scores) {
+        if (scores.unicorn_likelihood !== undefined) updateData.unicorn_likelihood_score = scores.unicorn_likelihood
+        if (scores.is_10x_bet !== undefined) updateData.is_10x_bet = scores.is_10x_bet
+        if (scores.hiring_velocity !== undefined) updateData.hiring_velocity_score = scores.hiring_velocity
+        if (scores.founding_team_signal !== undefined) updateData.founding_team_signal_score = scores.founding_team_signal
+        if (scores.backer_quality !== undefined) updateData.backer_quality_score = scores.backer_quality
+      }
+
+      // Headcount
+      const headcount = enrichment.headcount as Record<string, unknown> | undefined
+      if (headcount) {
+        if (headcount.current) updateData.headcount_current = headcount.current
+        if (headcount.growth_yoy_pct) updateData.employee_growth_yoy_percent = headcount.growth_yoy_pct
+      }
+
+      // Total funding
+      if (enrichment.total_funding) {
+        updateData.total_raised = enrichment.total_funding
+      }
+
+      // Competitors
+      if (enrichment.competitors && Array.isArray(enrichment.competitors) && enrichment.competitors.length > 0) {
+        updateData.direct_competitors = enrichment.competitors
+      }
+
+      // Team data
+      const team = enrichment.team as Record<string, unknown> | undefined
+      if (team) {
+        if (team.structure_type) updateData.team_structure_type = team.structure_type
+        if (team.cofounders_worked_together !== undefined) updateData.cofounders_worked_together_before = team.cofounders_worked_together
+        if (team.has_prior_exit !== undefined) updateData.has_prior_exit = team.has_prior_exit
+        if (team.prior_exits && Array.isArray(team.prior_exits) && team.prior_exits.length > 0) {
+          updateData.prior_exits = team.prior_exits
+        }
+      }
+
+      // Update startup
       const { error: updateError } = await supabase
         .from('startups')
         .update(updateData)
         .eq('id', startup.id)
 
       if (updateError) {
+        console.error(`  Update error for ${startup.name}:`, updateError)
         results.failed++
         results.details.push({ name: startup.name, status: 'failed', error: updateError.message })
-      } else {
-        results.succeeded++
-        results.details.push({ name: startup.name, status: 'success' })
+        continue
       }
+
+      // Insert funding rounds (if any new ones)
+      const fundingRounds = enrichment.funding_rounds as Array<Record<string, unknown>> | undefined
+      if (fundingRounds && fundingRounds.length > 0) {
+        for (const round of fundingRounds) {
+          if (round.round_type && round.amount) {
+            // Check if this round already exists
+            const { data: existingRound } = await supabase
+              .from('funding_rounds')
+              .select('id')
+              .eq('startup_id', startup.id)
+              .eq('round_type', round.round_type)
+              .maybeSingle()
+            
+            if (!existingRound) {
+              const roundDate = round.date ? String(round.date) : new Date().toISOString().split('T')[0]
+              await supabase.from('funding_rounds').insert({
+                startup_id: startup.id,
+                round_type: round.round_type,
+                amount: round.amount,
+                date: roundDate.length === 4 ? `${roundDate}-01-01` : roundDate.length === 7 ? `${roundDate}-01` : roundDate,
+                lead_investors: round.lead_investors || [],
+              })
+              console.log(`  Added funding round: ${round.round_type} - $${round.amount}`)
+            }
+          }
+        }
+      }
+
+      // Update data sources based on what sources Gemini used
+      const dataSources = enrichment.data_sources_used as string[] | undefined
+      if (dataSources && dataSources.length > 0) {
+        // Clear old generic sources
+        await supabase
+          .from('data_sources')
+          .delete()
+          .eq('startup_id', startup.id)
+          .eq('name', 'BernardAI Discovery')
+
+        // Add actual sources
+        for (const source of dataSources) {
+          const sourceExists = await supabase
+            .from('data_sources')
+            .select('id')
+            .eq('startup_id', startup.id)
+            .eq('name', source)
+            .maybeSingle()
+          
+          if (!sourceExists.data) {
+            let confidence: string = 'medium'
+            let url: string | null = null
+            
+            if (source.toLowerCase().includes('crunchbase')) {
+              confidence = 'high'
+              url = `https://crunchbase.com/organization/${startup.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`
+            } else if (source.toLowerCase().includes('techcrunch') || source.toLowerCase().includes('news')) {
+              confidence = 'high'
+              url = `https://techcrunch.com/?s=${encodeURIComponent(startup.name)}`
+            } else if (source.toLowerCase().includes('linkedin')) {
+              confidence = 'high'
+              url = `https://linkedin.com/company/${startup.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`
+            } else if (source.toLowerCase().includes('website') || source.toLowerCase().includes('company')) {
+              confidence = 'verified'
+              url = startup.website
+            }
+            
+            await supabase.from('data_sources').insert({
+              startup_id: startup.id,
+              name: source,
+              confidence,
+              url,
+            })
+          }
+        }
+        
+        // Always add BernardAI Analysis as a source (we did AI enrichment)
+        await supabase.from('data_sources').upsert({
+          startup_id: startup.id,
+          name: 'BernardAI Analysis',
+          confidence: 'medium',
+          url: null,
+        }, { onConflict: 'startup_id,name' }).select()
+      }
+
+      results.succeeded++
+      results.details.push({ 
+        name: startup.name, 
+        status: 'success',
+        sources: dataSources?.length || 1
+      })
     }
 
     const nextOffset = offset + batch_size
@@ -263,7 +518,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Processed ${results.processed} startups`,
+        message: `Enriched ${results.succeeded}/${results.processed} startups`,
         ...results,
         progress: {
           offset,
@@ -289,4 +544,3 @@ Deno.serve(async (req) => {
     )
   }
 })
-

@@ -8,7 +8,7 @@
  */
 
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -808,7 +808,12 @@ const VCDeals = () => {
                         <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Building2 className="h-4 w-4" />
-                            <span className="font-medium text-foreground">{deal.vcFirm}</span>
+                            <Link 
+                              to={`/investor/${encodeURIComponent(deal.vcFirm)}`}
+                              className="font-medium text-foreground hover:text-primary transition-colors"
+                            >
+                              {deal.vcFirm}
+                            </Link>
                             {deal.vcTier && (
                               <Badge className={tierColors[deal.vcTier]} variant="outline">
                                 {tierLabels[deal.vcTier]}
@@ -885,7 +890,12 @@ const VCDeals = () => {
                             <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                               <div className="flex items-center gap-1">
                                 <Building2 className="h-4 w-4" />
-                                <span className="font-medium text-foreground">{deal.vcFirm}</span>
+                                <Link 
+                                  to={`/investor/${encodeURIComponent(deal.vcFirm)}`}
+                                  className="font-medium text-foreground hover:text-primary transition-colors"
+                                >
+                                  {deal.vcFirm}
+                                </Link>
                               </div>
                             </div>
                           </div>
