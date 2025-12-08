@@ -71,20 +71,22 @@ export const PredictiveTab = ({ startup }: StartupDetailTabProps) => {
         <div className="grid grid-cols-3 gap-4">
           <div className="rounded-lg bg-secondary/30 p-3">
             <DataLabel 
-              label="Revenue" 
+              label={startup.metrics.revenueConfidence === 'verified' ? "Revenue (Verified)" : "Revenue (Estimated)"} 
               isEstimated={startup.metrics.revenueConfidence !== 'verified'} 
               tooltip={
                 startup.metrics.revenueConfidence === 'verified'
-                  ? `Verified: ${startup.metrics.revenueSource || 'Public disclosure'}`
+                  ? `Source: ${startup.metrics.revenueSource || 'Public disclosure'}`
                   : methodologyText.estimatedRevenue
               } 
             />
             <p className="font-medium text-foreground/80">
               {startup.metrics.estimatedRevenue || 'N/A'}
-              {startup.metrics.revenueConfidence === 'verified' && (
-                <span className="ml-1.5 text-xs text-green-600 dark:text-green-400">✓ Verified</span>
-              )}
             </p>
+            {startup.metrics.revenueSource && (
+              <p className="text-xs text-muted-foreground mt-1 truncate" title={startup.metrics.revenueSource}>
+                {startup.metrics.revenueSource}
+              </p>
+            )}
           </div>
           <div className="rounded-lg bg-secondary/30 p-3">
             <DataLabel label="Team Size" isEstimated tooltip={methodologyText.estimatedSize} />
@@ -97,39 +99,16 @@ export const PredictiveTab = ({ startup }: StartupDetailTabProps) => {
         </div>
       </div>
 
-      {/* Data Verification - Real Data from Hard-to-Find Sources */}
+      {/* Data Verification */}
       <div>
-        <SectionTitle>Real Data from Hard-to-Find Sources</SectionTitle>
-        <div className="rounded-lg bg-gradient-to-br from-emerald-500/5 to-blue-500/5 border border-emerald-500/20 p-4 space-y-3">
+        <SectionTitle>Data Verification</SectionTitle>
+        <div className="rounded-lg bg-gradient-to-br from-emerald-500/5 to-blue-500/5 border border-emerald-500/20 p-4">
           <div className="flex items-center gap-3">
             <ConfidenceBadge level={highestConfidence} />
             <span className="text-sm font-medium">
-              Cross-verified from {startup.dataSources.length} source{startup.dataSources.length !== 1 ? 's' : ''}
+              Verified by {startup.dataSources.length} data source{startup.dataSources.length !== 1 ? 's' : ''}
             </span>
           </div>
-          
-          <div className="grid grid-cols-2 gap-2 pt-3 border-t border-border/50">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <span>Updated daily</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <span>Many hard-to-find niche sources</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <span>Founder success signals</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <span>Filter by winning patterns</span>
-            </div>
-          </div>
-
-          <p className="text-xs text-muted-foreground italic pt-2 border-t border-border/50">
-            Real data that identifies winning startups — prior exits, team signals, and growth patterns that predict success.
-          </p>
         </div>
       </div>
     </div>

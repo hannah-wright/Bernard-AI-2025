@@ -73,6 +73,19 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
           avatar_url: data.avatar_url,
           credits_remaining: data.credits_remaining ?? 0,
           subscription_tier: data.subscription_tier,
+          // Onboarding fields
+          onboarding_completed_at: data.onboarding_completed_at,
+          onboarding_step: data.onboarding_step ?? 0,
+          onboarding_data: data.onboarding_data,
+          role: data.role,
+          investment_sectors: data.investment_sectors,
+          investment_stages: data.investment_stages,
+          investment_geos: data.investment_geos,
+          organization_id: data.organization_id,
+          // Email notification preferences
+          email_alerts_enabled: data.email_alerts_enabled ?? true,
+          email_weekly_digest: data.email_weekly_digest ?? true,
+          email_product_updates: data.email_product_updates ?? false,
         });
       }
     } catch (error) {

@@ -160,50 +160,32 @@ export const TeamTab = ({ startup }: StartupDetailTabProps) => {
         </div>
       )}
 
-      {/* Hiring Velocity - NEW */}
-      {(startup.hiringVelocityScore || startup.headcountGrowth) && (
+      {/* Hiring Velocity - Simplified (headcount details in Team Composition) */}
+      {startup.hiringVelocityScore && hiringVelocity && (
         <div>
           <SectionTitle tooltip="Hiring velocity is a strong signal for startups. Rapid engineering hiring often indicates product-market fit and growth.">
             Hiring Velocity
           </SectionTitle>
-          <div className="rounded-lg bg-secondary/50 p-4 space-y-3">
+          <div className="rounded-lg bg-secondary/50 p-4">
             {/* Velocity Score */}
-            {startup.hiringVelocityScore && hiringVelocity && (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className={cn("h-5 w-5", hiringVelocity.color)} />
-                  <span className={cn("font-medium", hiringVelocity.color)}>{hiringVelocity.label}</span>
-                </div>
-                <Badge className={cn(hiringVelocity.bgColor, hiringVelocity.color, "border-0")}>
-                  {startup.hiringVelocityScore}/100
-                </Badge>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TrendingUp className={cn("h-5 w-5", hiringVelocity.color)} />
+                <span className={cn("font-medium", hiringVelocity.color)}>{hiringVelocity.label}</span>
               </div>
-            )}
+              <Badge className={cn(hiringVelocity.bgColor, hiringVelocity.color, "border-0")}>
+                {startup.hiringVelocityScore}/100
+              </Badge>
+            </div>
             
-            {/* Headcount Details */}
-            {startup.headcountGrowth && (
-              <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border/50">
-                <div className="rounded-lg bg-secondary/30 p-3 text-center">
-                  <p className="text-xl font-semibold">{startup.headcountGrowth.current}</p>
-                  <p className="text-xs text-muted-foreground">Current Headcount</p>
-                </div>
-                {startup.headcountGrowth.engineeringCurrent && (
-                  <div className="rounded-lg bg-blue-500/10 p-3 text-center">
-                    <p className="text-xl font-semibold text-blue-500">{startup.headcountGrowth.engineeringCurrent}</p>
-                    <p className="text-xs text-muted-foreground">Engineering</p>
-                  </div>
-                )}
-                {startup.headcountGrowth.sixMonthsAgo && (
-                  <div className="col-span-2 flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">6 months ago</span>
-                    <span>{startup.headcountGrowth.sixMonthsAgo} employees</span>
-                    {startup.headcountGrowth.current && startup.headcountGrowth.sixMonthsAgo && (
-                      <Badge variant="secondary" className="text-xs">
-                        +{Math.round(((startup.headcountGrowth.current - startup.headcountGrowth.sixMonthsAgo) / startup.headcountGrowth.sixMonthsAgo) * 100)}%
-                      </Badge>
-                    )}
-                  </div>
-                )}
+            {/* Employee Growth % - if available */}
+            {startup.headcountGrowth?.current && startup.headcountGrowth?.sixMonthsAgo && startup.headcountGrowth.sixMonthsAgo > 0 && (
+              <div className="flex items-center justify-between text-sm mt-3 pt-3 border-t border-border/50">
+                <span className="text-muted-foreground">Employee growth (6 months)</span>
+                <Badge variant="secondary" className="text-xs">
+                  {startup.headcountGrowth.current > startup.headcountGrowth.sixMonthsAgo ? '+' : ''}
+                  {Math.round(((startup.headcountGrowth.current - startup.headcountGrowth.sixMonthsAgo) / startup.headcountGrowth.sixMonthsAgo) * 100)}%
+                </Badge>
               </div>
             )}
           </div>
