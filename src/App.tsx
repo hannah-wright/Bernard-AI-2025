@@ -24,6 +24,7 @@ import Settings from "./pages/Settings";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import NotFound from "./pages/NotFound";
+import InvestorProfile from "./pages/InvestorProfile";
 
 // Configure React Query with sensible defaults
 const queryClient = new QueryClient({
@@ -166,6 +167,16 @@ const App = () => (
             element={
               <ErrorBoundary>
                 <Privacy />
+              </ErrorBoundary>
+            } 
+          />
+          
+          {/* Investor Profile */}
+          <Route 
+            path="/investor/:investorName" 
+            element={
+              <ErrorBoundary>
+                <InvestorProfile />
               </ErrorBoundary>
             } 
           />

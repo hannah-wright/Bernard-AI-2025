@@ -2,8 +2,9 @@ import { useState, useMemo, useEffect } from 'react';
 import { Startup, FilterState, SortOption } from '@/types/startup';
 import { StartupCard } from './StartupCard';
 import { Button } from '@/components/ui/button';
-import { Lock, Loader2, ChevronDown } from 'lucide-react';
+import { Lock, Loader2, ChevronDown, Sparkles } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useCredits } from '@/hooks/useCredits';
 import { locationData, countryNameToCode, getMetrosForCountries, cityBelongsToMetro } from '@/data/locationData';
 import { Link } from 'react-router-dom';
 
@@ -29,6 +30,7 @@ export const StartupGrid = ({
   onLoadMore 
 }: StartupGridProps) => {
   const { user } = useAuth();
+  const { credits } = useCredits();
   const [displayCount, setDisplayCount] = useState(ITEMS_PER_PAGE);
   
   // Reset display count when filters or search changes
@@ -500,13 +502,33 @@ export const StartupGrid = ({
         </>
       ) : (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="h-16 w-16 rounded-full bg-secondary flex items-center justify-center mb-4">
-            <span className="text-2xl">🔍</span>
-          </div>
-          <h3 className="font-medium text-foreground mb-1">No startups found</h3>
-          <p className="text-sm text-muted-foreground max-w-sm">
-            Try adjusting your filters to see more results. You can change the date range, funding amount, or sectors.
-          </p>
+          {user && credits <= 0 ? (
+            <>
+              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <Sparkles className="h-8 w-8 text-primary" />
+              </div>
+              <h3 className="font-medium text-foreground mb-1">Please upgrade to view</h3>
+              <p className="text-sm text-muted-foreground max-w-sm mb-4">
+                You've used all your credits. Upgrade your plan to continue viewing startup details.
+              </p>
+              <Button asChild>
+                <Link to="/billing">
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Upgrade Now
+                </Link>
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="h-16 w-16 rounded-full bg-secondary flex items-center justify-center mb-4">
+                <span className="text-2xl">🔍</span>
+              </div>
+              <h3 className="font-medium text-foreground mb-1">No startups found</h3>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                Try adjusting your filters to see more results. You can change the date range, funding amount, or sectors.
+              </p>
+            </>
+          )}
         </div>
       )}
     </div>
