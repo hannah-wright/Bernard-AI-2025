@@ -158,3 +158,5 @@ CREATE POLICY "Allow service role all startup_angel_investments" ON public.start
 CREATE POLICY "Allow service role all vc_firms" ON public.vc_firms
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
+
+
