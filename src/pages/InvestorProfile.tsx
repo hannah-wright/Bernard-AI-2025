@@ -503,3 +503,5 @@ const InvestorProfile = () => {
 
 export default InvestorProfile;
 
+
+

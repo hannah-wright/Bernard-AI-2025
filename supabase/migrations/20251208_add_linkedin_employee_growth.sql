@@ -20,3 +20,5 @@ COMMENT ON COLUMN public.startups.employee_growth_yoy_percent IS 'Year-over-year
 COMMENT ON COLUMN public.startups.linkedin_company_url IS 'LinkedIn company page URL';
 COMMENT ON COLUMN public.startups.linkedin_last_scraped IS 'Last time LinkedIn data was scraped for this startup';
 
+
+

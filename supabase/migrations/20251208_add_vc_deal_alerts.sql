@@ -65,3 +65,5 @@ CREATE POLICY "Service role full access to vc deal alerts"
 -- Add comment for documentation
 COMMENT ON TABLE public.vc_deal_alerts IS 'Stores user-saved VC deal filters with optional email notification settings';
 
+
+
