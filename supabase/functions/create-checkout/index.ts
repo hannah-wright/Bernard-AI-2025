@@ -52,7 +52,7 @@ serve(async (req) => {
       logStep("Found existing customer", { customerId });
     }
 
-    const origin = req.headers.get("origin") || "https://YOUR_PROJECT_REF.lovable.app";
+    const origin = req.headers.get("origin") || "https://your-domain.example";
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,

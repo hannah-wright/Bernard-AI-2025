@@ -375,25 +375,17 @@ Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req.headers.get("Origin"))
 
   try {
-    // Try Gemini first, fall back to Lovable if configured
-    let apiKey = Deno.env.get('GEMINI_API_KEY')
-    let useGemini = true
-    
+    const apiKey = Deno.env.get('GEMINI_API_KEY')
+
     if (!apiKey) {
-      // Fallback to Lovable API if Gemini not configured
-      apiKey = Deno.env.get('LOVABLE_API_KEY')
-      useGemini = false
-      
-      if (!apiKey) {
-        console.error('No AI API key configured. Set GEMINI_API_KEY (recommended) or LOVABLE_API_KEY')
-        return new Response(
-          JSON.stringify({ 
-            error: 'AI API key not configured',
-            help: 'Set GEMINI_API_KEY in Supabase secrets. Get a free key at https://aistudio.google.com/app/apikey'
-          }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
+      console.error('GEMINI_API_KEY not configured')
+      return new Response(
+        JSON.stringify({
+          error: 'GEMINI_API_KEY not configured',
+          help: 'Set GEMINI_API_KEY in Supabase secrets. Get a free key at https://aistudio.google.com/app/apikey'
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
@@ -447,7 +439,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    console.log(`Enriching ${startupsToEnrich.length} startups using ${useGemini ? 'Gemini' : 'Lovable'} API...`)
+    console.log(`Enriching ${startupsToEnrich.length} startups using Gemini API...`)
 
     let enriched = 0
     let errors = 0
@@ -564,7 +556,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         message: `Enrichment complete`,
-        provider: useGemini ? 'Google Gemini' : 'Lovable AI',
+        provider: 'Google Gemini',
         stats: {
           total: startupsToEnrich.length,
           enriched,
