@@ -142,7 +142,6 @@ Edge functions are deployed automatically when code is pushed. Functions are loc
 2. Uses **Google Gemini 1.5 Flash** for VC intelligence analysis (free tier available)
 3. Generates: team scores, unicorn probability, PMF score
 4. Populates: founder background, traction, unit economics
-5. Fallback: Can use Lovable AI if LOVABLE_API_KEY is set instead
 
 ## Billing Integration
 
@@ -198,9 +197,8 @@ Typography: Libre Baskerville for headers, Geist Sans for body.
 
 ## Deployment
 
-- **Frontend**: Lovable (auto-deploys on push)
+- **Frontend**: Vercel (`vercel.json` handles SPA routing)
 - **Backend**: Supabase Edge Functions (auto-deploys)
-- **Vercel**: Use `vercel.json` for SPA routing
 
 ## License
 
